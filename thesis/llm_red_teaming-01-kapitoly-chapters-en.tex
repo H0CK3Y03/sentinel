@@ -27,23 +27,55 @@ The main goal of this bachelor's thesis is therefore the design, implementation,
 
 \chapter{Background and Related Work}\label{ch:background}
 
-This chapter provides the technical and empirical background necessary to understand red-teaming of large language models (LLMs). We first cover the architecture and training paradigm of modern LLMs and the alignment methods applied to improve their safety. Next, we survey the primary categories of safety risks and known vulnerability classes. We then turn to red-teaming methodology as adapted to LLMs — definitions, goals, and a taxonomy of test methods. Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors). Finally, we review evaluation metrics and benchmarks used to measure safety failures, and survey existing open-source tools and frameworks. The chapter concludes with a synthesis of gaps in current tooling and evaluation practice, motivating the design of the toolkit proposed in this thesis.
+This chapter provides the technical and empirical background necessary to understand red-teaming of large language models (LLMs).
+
+We first cover the architecture and training paradigm of modern LLMs and the alignment methods applied to improve their safety.
+
+Next, we survey the primary categories of safety risks and known vulnerability classes.
+
+We then turn to red-teaming methodology as adapted to LLMs — definitions, goals, and a taxonomy of test methods.
+
+Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors).
+
+Finally, we review evaluation metrics and benchmarks used to measure safety failures, and survey existing open-source tools and frameworks.
+
+The chapter concludes with a synthesis of gaps in current tooling and evaluation practice, motivating the design of the toolkit proposed in this thesis.
 
 \section{Large Language Models}\label{sec:llms}
 
-Large language models (LLMs) are sequence-to-sequence or autoregressive models based on the Transformer architecture \cite{vaswani2017attention}. They are trained on massive, internet-scale corpora using a self-supervised objective such as next-token prediction. After pretraining, many high-performance models undergo instruction fine-tuning and additional alignment to become more useful and safer in downstream use.
+Large language models (LLMs) are sequence-to-sequence or autoregressive models based on the Transformer architecture~\cite{vaswani2017attention}.
 
-By 2025, publicly-available and research-grade LLMs often exceed tens to hundreds of billions of parameters, employing advanced architectural and optimization features (e.g., mixture-of-experts, retrieval augmentation, quantization-aware training). Because of the scale of their training data and capacity, LLMs encode a wide variety of linguistic patterns, factual knowledge, biases, and behavioural priors. This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviors that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation.
+They are trained on massive, internet-scale corpora using a self-supervised objective such as next-token prediction.
+
+After pretraining, many high-performance models undergo instruction fine-tuning and additional alignment to become more useful and safer in downstream use.
+
+By 2025, publicly-available and research-grade LLMs often exceed tens to hundreds of billions of parameters, employing advanced architectural and optimization features (e.g., mixture-of-experts, retrieval augmentation, quantization-aware training).
+
+Because of the scale of their training data and capacity, LLMs encode a wide variety of linguistic patterns, factual knowledge, biases, and behavioural priors.
+
+This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviors that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation.
 
 \subsection{Alignment and Safety Interventions}\label{sec:alignment}
 
-To mitigate risks from raw pre-trained models, developers commonly apply a pipeline of alignment techniques. First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats. Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimization method (e.g., PPO) updates the model to align it to human preferences. Variants like Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality.
+To mitigate risks from raw pre-trained models, developers commonly apply a pipeline of alignment techniques.
 
-Despite alignment efforts, evidence demonstrates that safety training is not foolproof. Behavioural failures persist, especially under adversarial or adversary-chosen inputs: prompt-based attacks and jailbreaks remain a major vulnerability class (cf.\ \cite{wei2023jailbroken, zou2023universal, perez2022ignore}). The fact that surface-level filtering and instruction tuning can be bypassed indicates that LLMs continue to rely on shallow heuristics rather than robust semantic safety guarantees.
+First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats.
+
+Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimization method (e.g., PPO) updates the model to align it to human preferences.
+
+Variants like Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality.
+
+Despite alignment efforts, evidence demonstrates that safety training is not foolproof.
+
+Behavioural failures persist, especially under adversarial or adversary-chosen inputs: prompt-based attacks and jailbreaks remain a major vulnerability class (cf.\ \cite{wei2023jailbroken, zou2023universal, perez2022ignore}).
+
+The fact that surface-level filtering and instruction tuning can be bypassed indicates that LLMs continue to rely on shallow heuristics rather than robust semantic safety guarantees.
 
 \section{LLM Safety Risks}\label{sec:risk-taxonomy}
 
-LLM misuse and unintended outputs pose a broad array of risks. The following taxonomy, commonly adopted in recent red-teaming efforts, captures the primary threat vectors:
+LLM misuse and unintended outputs pose a broad array of risks.
+
+The following taxonomy, commonly adopted in recent red-teaming efforts, captures the primary threat vectors:
 
 \begin{itemize}
   \item \textbf{Malicious usage:} generation of instructions or actionable content facilitating wrongdoing (e.g., bomb-making, illicit substances, hacking).  
@@ -54,11 +86,15 @@ LLM misuse and unintended outputs pose a broad array of risks. The following tax
   \item \textbf{Emergent misuse and behavioural failures:} including instruction-following failures, refusal evasion (the model ignoring safety instructions), social-engineering exploitation, or covert manipulation over multiple turns.  
 \end{itemize}
 
-These categories correspond to those used in large-scale safety benchmarks and red-team evaluation suites. For example, frameworks such as {\em HarmBench} operationalize a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods \cite{mazeika2024harmbench}.
+These categories correspond to those used in large-scale safety benchmarks and red-team evaluation suites.
+
+For example, frameworks such as {\em HarmBench} operationalize a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
 
 \section{Red Teaming: Definitions and Methodology}\label{sec:red-teaming-def}
 
-Originally developed in cybersecurity and military contexts, \emph{red teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment. In the context of LLMs, red teaming denotes systematic probing of model behaviour via adversarial prompts or inputs designed to circumvent safety and alignment measures, with the goal of discovering previously unknown failure modes, measuring their prevalence, and informing robust defenses.
+Originally developed in cybersecurity and military contexts, \emph{red teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment.
+
+In the context of LLMs, red teaming denotes systematic probing of model behaviour via adversarial prompts or inputs designed to circumvent safety and alignment measures, with the goal of discovering previously unknown failure modes, measuring their prevalence, and informing robust defenses.
 
 Red-team campaigns in LLM settings typically have several objectives:
 
@@ -74,14 +110,26 @@ Modern red-teaming approaches in LLMs span from fully manual human-driven pen-te
 \subsection{Manual, Rule-Based and Automated Red Teaming}\label{sec:red-teaming-methods}
 
 \begin{description}
-  \item[Manual red teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses. This approach benefits from human creativity and insight into real-world misuse, including social-engineering, context-aware manipulation, or subtle misuse cases. However, it is expensive, time-consuming, and often non-reproducible.
+  \item[Manual red teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses.
+  
+  This approach benefits from human creativity and insight into real-world misuse, including social-engineering, context-aware manipulation, or subtle misuse cases.
+  
+  However, it is expensive, time-consuming, and often non-reproducible.
 
-  \item[Rule-based / template-based testing:] uses curated prompt templates (e.g., standard jailbreaks, role-play prompts, obfuscation methods, encoded instructions) or transformation rules to generate adversarial inputs systematically. This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalize to novel attacks.
+  \item[Rule-based / template-based testing:] uses curated prompt templates (e.g., standard jailbreaks, role-play prompts, obfuscation methods, encoded instructions) or transformation rules to generate adversarial inputs systematically.
+  
+  This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalize to novel attacks.
 
-  \item[Automated red teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker. Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones \cite{mehrotra2023tap}. Automated methods scale well, explore large prompt spaces, and can discover novel failures, but also risk producing unrealistic or trivial prompts — and often depend on the quality of the attacker/judge model and search strategy.
+  \item[Automated red teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
+  
+  Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones~\cite{mehrotra2023tap}.
+  
+  Automated methods scale well, explore large prompt spaces, and can discover novel failures, but also risk producing unrealistic or trivial prompts — and often depend on the quality of the attacker/judge model and search strategy.
 \end{description}
 
-Automated red-teaming has recently been re-envisioned as a sequential, multi-turn process rather than isolated single-turn attempts. For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning to optimize long-horizon attacks over entire dialogue trajectories \cite{belaire2025automatic}.
+Automated red-teaming has recently been re-envisioned as a sequential, multi-turn process rather than isolated single-turn attempts.
+
+For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning to optimize long-horizon attacks over entire dialogue trajectories~\cite{belaire2025automatic}.
 
 \section{Attack Taxonomy}\label{sec:attack-taxonomy}
 
@@ -89,31 +137,61 @@ Here we outline the main classes of attacks exploited in LLM red-teaming, includ
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
-Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions. Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation (to hide disallowed instructions), and other prompt-engineering tricks. Despite alignment training, many models remain vulnerable to such simple attacks \cite{wei2023jailbroken, zou2023universal}.
+Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions.
+
+Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation (to hide disallowed instructions), and other prompt-engineering tricks.
+
+Despite alignment training, many models remain vulnerable to such simple attacks~\cite{wei2023jailbroken, zou2023universal}.
 
 \subsection{Prompt Injection}\label{sec:prompt-injection}
 
-Prompt injection refers to attacks where user-supplied input (or external content, in the case of integrated applications) is directly interpreted by the LLM as instructions, potentially overriding or modifying hidden system prompts. This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines) because attackers can inject malicious instructions that the model treats as legitimate. Empirical studies have demonstrated that many deployed LLM-based applications are vulnerable to prompt injection — for example via the {\em HouYi} attack, which compromised dozens of applications in a black-box setting \cite{liu2023promptinjectionapps}. Other work has shown that even automated, universal prompt injection attacks remain effective under defensive measures \cite{liu2024automaticpi}.
+Prompt injection refers to attacks where user-supplied input (or external content, in the case of integrated applications) is directly interpreted by the LLM as instructions, potentially overriding or modifying hidden system prompts.
 
-Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications \cite{turn0search9}.
+This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines) because attackers can inject malicious instructions that the model treats as legitimate.
+
+Empirical studies have demonstrated that many deployed LLM-based applications are vulnerable to prompt injection — for example via the {\em HouYi} attack, which compromised dozens of applications in a black-box setting~\cite{liu2023promptinjectionapps}.
+
+Other work has shown that even automated, universal prompt injection attacks remain effective under defensive measures~\cite{liu2024automaticpi}.
+
+Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{turn0search9}.
 
 \subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
 
-Rather than achieve a jailbreak in a single prompt, adversaries may perform a series of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model’s inability to consistently refuse undesirable requests. Multi-turn attacks may involve context poisoning, social-engineering style dialogue, bait-and-switch tactics, or incremental obfuscation. This vector is increasingly recognized as one of the most dangerous and under-evaluated. Recent research recasts automated red-teaming as a multi-turn optimization problem — which better reflects realistic adversarial scenarios — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content \cite{belaire2025automatic}.
+Rather than achieve a jailbreak in a single prompt, adversaries may perform a series of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model's inability to consistently refuse undesirable requests.
+
+Multi-turn attacks may involve context poisoning, social-engineering style dialogue, bait-and-switch tactics, or incremental obfuscation.
+
+This vector is increasingly recognized as one of the most dangerous and under-evaluated.
+
+Recent research recasts automated red-teaming as a multi-turn optimization problem — which better reflects realistic adversarial scenarios — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content~\cite{belaire2025automatic}.
 
 \subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{sec:universal}
 
-Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models. This makes the attack highly reusable and dangerous. One example is the black-box Trojan prompt attack framework {\em TrojLLM}, which demonstrates that universal stealthy triggers can be discovered for widely-used LLM APIs such as GPT-3.5 and GPT-4, enabling malicious manipulation across diverse prompt inputs \cite{xue2023trojllm}. Such attacks bypass input sanitization heuristics because the trigger is embedded in seemingly benign inputs.
+Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models.
+
+This makes the attack highly reusable and dangerous.
+
+One example is the black-box Trojan prompt attack framework {\em TrojLLM}, which demonstrates that universal stealthy triggers can be discovered for widely-used LLM APIs such as GPT-3.5 and GPT-4, enabling malicious manipulation across diverse prompt inputs~\cite{xue2023trojllm}.
+
+Such attacks bypass input sanitization heuristics because the trigger is embedded in seemingly benign inputs.
 
 \subsection{Prompt-based Evasion and Adversarial Perturbations}\label{sec:perturbation}
 
-Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertion, deletion, or encoding — i.e., minimal but adversarial changes that remain semantically similar to benign prompts but cause the model to deviate. Defenses based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts. Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size \cite{kumar2023certifying}. While promising, such methods are computationally expensive and may degrade user experience or model utility.
+Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertion, deletion, or encoding — i.e., minimal but adversarial changes that remain semantically similar to benign prompts but cause the model to deviate.
+
+Defenses based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
+
+Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2023certifying}.
+
+While promising, such methods are computationally expensive and may degrade user experience or model utility.
 
 Because these perturbation-based attacks operate at the token level and can be obfuscated, they represent a difficult-to-detect threat, especially when combined with other attack modalities (multi-turn, universal triggers, trojans).
 
 \section{Evaluation Metrics and Benchmarks}\label{sec:evaluation}
 
-Robust and systematic evaluation is critical for red-teaming. The following metrics and benchmarks are widely adopted in research and practice.
+Robust and systematic evaluation is critical for red-teaming.
+
+The following metrics and benchmarks are widely adopted in research and practice.
 
 \subsection{Quantitative Metrics}\label{sec:metrics-quant}
 
@@ -128,35 +206,67 @@ Robust and systematic evaluation is critical for red-teaming. The following metr
 
 \subsection{Benchmarks and Standardized Suites}\label{sec:benchmarks}
 
-To enable systematic comparison across red-teaming methods and LLMs, standard benchmarks have recently been developed. A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods (18 methods) and a diverse set of target models and defenses (33 LLMs / defense settings) \cite{mazeika2024harmbench}. HarmBench enables reproducible large-scale red-team evaluation and supports both attack- and defense-side experiments. Its release marks a milestone toward standardizing LLM safety evaluation pipelines.
+To enable systematic comparison across red-teaming methods and LLMs, standard benchmarks have recently been developed.
 
-Despite this progress, many prior works still rely on ad-hoc prompt sets, non-public prompt libraries, or private internal red-team pipelines. In addition, while single-turn attack benchmarks are relatively common, multi-turn / conversational red-teaming remains underrepresented in publicly available benchmark suites.
+A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods (18 methods) and a diverse set of target models and defenses (33 LLMs / defense settings)~\cite{mazeika2024harmbench}.
+
+HarmBench enables reproducible large-scale red-team evaluation and supports both attack and defense-side experiments.
+
+Its release marks a milestone toward standardizing LLM safety evaluation pipelines.
+
+Despite this progress, many prior works still rely on ad-hoc prompt sets, non-public prompt libraries, or private internal red-team pipelines.
+
+In addition, while single-turn attack benchmarks are relatively common, multi-turn / conversational red-teaming remains underrepresented in publicly available benchmark suites.
 
 \section{Open-source Red-Teaming Tools and Frameworks}\label{sec:tool-survey}
 
-Several open-source frameworks and research prototypes aim to support systematic red-teaming. Their design choices, strengths, and limitations vary.
+Several open-source frameworks and research prototypes aim to support systematic red-teaming.
+
+Their design choices, strengths, and limitations vary.
 
 \subsection{Frameworks for rule-based or template-based red-teaming}\label{sec:pyrit-garak}
 
-Frameworks such as {\em PyRIT} (discussed in the introduction) provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-team sessions. These tools are often lightweight and well-suited for smaller projects or smaller compute budgets, but tend to lack advanced automated search or generation capabilities.
+Frameworks such as {\em PyRIT} (discussed in the introduction) provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-team sessions.
 
-Another such toolkit is {\em garak}, promoted by a major vendor and widely referenced in the industry. garak provides “probes, generators, and detectors”: probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML + JSON). This design allows red-teaming across a variety of model backends and output modalities, but — as with simpler frameworks — may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box \cite{turn0search32}.
+These tools are often lightweight and well-suited for smaller projects or smaller compute budgets, but tend to lack advanced automated search or generation capabilities.
+
+Another such toolkit is {\em garak}, promoted by a major vendor and widely referenced in the industry.
+
+garak provides “probes, generators, and detectors”: probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML + JSON).
+
+This design allows red-teaming across a variety of model backends and output modalities, but — as with simpler frameworks — may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{turn0search32}.
 
 \subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
 
-More advanced frameworks attempt to integrate attack generation, execution, and evaluation into a unified pipeline. Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming framework designed to allow multiple attack strategies (template-based, search-based, LLM-driven) in a pluggable architecture \cite{schoepf2025madmax}. Its modular nature makes it flexible and extensible, but in practice integrating it with diverse model runtimes (local LLaMA variants, API-based models, multi-modal models) and scaling up to large-scale red-teaming remains challenging due to compute cost, model compatibility, and evaluation infrastructure requirements.
+More advanced frameworks attempt to integrate attack generation, execution, and evaluation into a unified pipeline.
 
-The recent work on fully automated, trajectory-based red teaming — recasting red teaming as a sequential decision-making process over entire dialogues — pushes the frontier further. For example, the automated red-teaming approach by Belaire et al. (2025) formalizes multi-turn red teaming as a Markov Decision Process (MDP), enabling attack policies to optimize over entire conversation trajectories rather than single messages \cite{belaire2025automatic}. This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
+Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming framework designed to allow multiple attack strategies (template-based, search-based, LLM-driven) in a pluggable architecture~\cite{schoepf2025madmax}.
+
+Its modular nature makes it flexible and extensible, but in practice integrating it with diverse model runtimes (local LLaMA variants, API-based models, multi-modal models) and scaling up to large-scale red-teaming remains challenging due to compute cost, model compatibility, and evaluation infrastructure requirements.
+
+The recent work on fully automated, trajectory-based red teaming — recasting red teaming as a sequential decision-making process over entire dialogues — pushes the frontier further.
+
+For example, the automated red-teaming approach by Belaire et al. (2025) formalizes multi-turn red teaming as a Markov Decision Process (MDP), enabling attack policies to optimize over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
+
+This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
 \subsection{Defense-oriented and Certified Safety Approaches}\label{sec:defenses}
 
-In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting. For example, the framework “erase-and-check” provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size. This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions \cite{kumar2023certifying}. While promising, such approaches are often computationally expensive and may impair user experience or model usability.
+In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting.
 
-Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defense strategies, necessitating robust input sanitization, runtime monitoring, and possibly dynamic prompt sanitization or adversarial-resistant prompt encoding \cite{xue2023trojllm}.
+For example, the framework “erase-and-check” provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size.
+
+This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions~\cite{kumar2023certifying}.
+
+While promising, such approaches are often computationally expensive and may impair user experience or model usability.
+
+Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defense strategies, necessitating robust input sanitization, runtime monitoring, and possibly dynamic prompt sanitization or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
 
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
-The literature and tools surveyed above show that — while the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics — substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models. In particular:
+The literature and tools surveyed above show that — while the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics — substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models.
+
+In particular:
 
 \begin{itemize}
   \item \textbf{Lack of lightweight, modular, and extensible tooling:} existing frameworks either focus on small scale (template-based, rule-based, lightweight) or on large-scale automated red-teaming — but rarely both. There is a lack of toolkits that are accessible to small research teams or individual developers yet support modern LLM backends, extensible attack/evaluator plugins, and reproducible logging/benchmarks.  
@@ -166,11 +276,19 @@ The literature and tools surveyed above show that — while the research communi
   \item \textbf{Limited transparency and reproducibility of prompt libraries and experiment artefacts:} many studies do not release their full prompt sets, seeds, or evaluation logs, making independent replication or longitudinal safety regression testing difficult.  
 \end{itemize}
 
-These gaps motivate the design goals for the toolkit developed in this thesis: namely, modularity and pluggability (attack generators, model adapters, evaluators), reproducible experiment manifests and logging, hybrid judging (to balance cost and fidelity), and explicit support for multi-turn conversational testing. By addressing these gaps, the proposed toolkit aims to lower the barrier to entry for systematic LLM red-teaming for researchers, students, and small teams.
+These gaps motivate the design goals for the toolkit developed in this thesis: namely, modularity and pluggability (attack generators, model adapters, evaluators), reproducible experiment manifests and logging, hybrid judging (to balance cost and fidelity), and explicit support for multi-turn conversational testing.
+
+By addressing these gaps, the proposed toolkit aims to lower the barrier to entry for systematic LLM red-teaming for researchers, students, and small teams.
 
 \section{Conclusion of the Chapter}\label{sec:chapter-conclusion}
 
-In this chapter we surveyed the technical foundations of large language models — their architecture, alignment techniques, and associated safety risks — and we reviewed a broad spectrum of attack vectors: from simple single-shot jailbreaks to prompt injection, multi-turn manipulations, universal triggers, and Trojan-style prompt attacks. We examined the diversity of red-teaming methodologies (manual, rule-based, and automated), and we discussed evaluation metrics and recent benchmark frameworks such as {\em HarmBench}. We also surveyed existing open-source tools and frameworks, highlighting trade-offs between accessibility, scalability, and coverage. Finally, we identified core gaps in tooling, evaluation, and reproducibility — gaps that motivate the design and implementation of the red-teaming toolkit proposed in the next chapter.
+In this chapter we surveyed the technical foundations of large language models — their architecture, alignment techniques, and associated safety risks — and we reviewed a broad spectrum of attack vectors: from simple single-shot jailbreaks to prompt injection, multi-turn manipulations, universal triggers, and Trojan-style prompt attacks.
+
+We examined the diversity of red-teaming methodologies (manual, rule-based, and automated), and we discussed evaluation metrics and recent benchmark frameworks such as {\em HarmBench}.
+
+We also surveyed existing open-source tools and frameworks, highlighting trade-offs between accessibility, scalability, and coverage.
+
+Finally, we identified core gaps in tooling, evaluation, and reproducibility — gaps that motivate the design and implementation of the red-teaming toolkit proposed in the next chapter.
 
 With this foundation in place, the next chapter will provide a detailed survey of existing open-source red-teaming toolkits, followed by a requirements analysis and the design of the proposed modular, extensible toolkit.
 
