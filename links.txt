@@ -4,3 +4,5 @@ https://agi.safe.ai/
 https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai#:~:text=Application%20timeline%20The%20AI%20Act%20entered%20into,extended%20transition%20period%20until%202%20August%202027.
 https://artificialanalysis.ai/models?intelligence=coding-index&intelligence-category=reasoning-vs-non-reasoning
 https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/strengthening-our-frontier-safety-framework/frontier-safety-framework_3.pdf
+
+https://github.com/NVIDIA/garak

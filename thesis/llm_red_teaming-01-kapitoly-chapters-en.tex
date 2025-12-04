@@ -8,7 +8,7 @@
 
 \chapter{Introduction}\label{ch:introduction}
 
-The rapid advancement and widespread deployment of large language models (LLMs) such as GPT-5.1, Claude Sonnet 4.5, Gemini 3 and others have transformed natural-language interaction with computers.
+The rapid advancement and widespread deployment of large language models (LLMs) and others have transformed natural-language interaction with computers.
 These models power chatbots, code assistants, translation services, and creative tools used daily by millions of users.
 
 However, their remarkable capabilities come with significant safety and ethical risks.
@@ -153,7 +153,7 @@ Empirical studies have demonstrated that many deployed LLM-based applications ar
 
 Other work has shown that even automated, universal prompt injection attacks remain effective under defensive measures~\cite{liu2024automaticpi}.
 
-Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{turn0search9}.
+Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{owasp2025llm}.
 
 \subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
 
@@ -234,7 +234,7 @@ Another such toolkit is {\em garak}, promoted by a major vendor and widely refer
 
 garak provides “probes, generators, and detectors”: probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML + JSON).
 
-This design allows red-teaming across a variety of model backends and output modalities, but — as with simpler frameworks — may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{turn0search32}.
+This design allows red-teaming across a variety of model backends and output modalities, but — as with simpler frameworks — may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{derczynski2024garak}.
 
 \subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
 
@@ -308,16 +308,16 @@ With this foundation in place, the next chapter will provide a detailed survey o
 \textbf{PyRIT} \cite{munoz2024pyrit} &
 Rule-based prompts, template attacks, basic prompt injection, simple adversarial transforms. &
 Supports API-based models (OpenAI, Anthropic), simple REST adapters; limited support for local LLMs. &
-\textcolor{gray}{Partial} – supports manual conversational sessions but lacks automated multi-turn logic. &
+\textcolor{gray}{Partial} - supports manual conversational sessions but lacks automated multi-turn logic. &
 Basic keyword/regex checks; optional external classifiers. &
 + Lightweight, easy to use.  
 -- Limited automation, no search-based generators, weak judge reliability. \\
 
 \midrule
-\textbf{garak} \cite{turn0search32} &
+\textbf{garak} \cite{derczynski2024garak} &
 Template attacks, perturbation probes, obfuscation, prompt rewriting via “generators”. &
 API models + HuggingFace backends; modular “generators” allow extension. &
-\textcolor{gray}{Partial} – supports sequential probing, but not full conversational trajectories. &
+\textcolor{gray}{Partial} - supports sequential probing, but not full conversational trajectories. &
 Detectors: regex, classifiers; HTML/JSON reporting. &
 + Mature, widely used, structured probes.  
 -- Limited advanced automated attack generation; multi-turn support minimal. \\
@@ -326,7 +326,7 @@ Detectors: regex, classifiers; HTML/JSON reporting. &
 \textbf{MAD-MAX} \cite{schoepf2025madmax} &
 Modular system: rule-based, template-based, LLM-generated attacks, search-based attacks. &
 Designed for flexible backends; supports API and local models; plugin-based adapters. &
-\textbf{Yes} – modular conversation orchestrator; supports multi-turn flows. &
+\textbf{Yes} - modular conversation orchestrator; supports multi-turn flows. &
 LLM-as-a-judge, rule-based detectors, modular evaluation pipeline. &
 + Highly modular, extensible.  
 -- High compute requirements; complex to deploy; best suited for labs. \\
@@ -335,25 +335,25 @@ LLM-as-a-judge, rule-based detectors, modular evaluation pipeline. &
 \textbf{Automatic LLM Red Teaming} \\ (Belaire et al. 2025) \cite{belaire2025automatic} &
 LLM-as-attacker, RL/HF-based optimisation, trajectory-level red teaming, multi-turn adversarial search. &
 API and local models; depends on model-in-the-loop capabilities. &
-\textbf{Yes} – multi-turn attacks optimized using RL / MDP formulation. &
+\textbf{Yes} - multi-turn attacks optimized using RL / MDP formulation. &
 LLM judges (safety classifiers, preference models). &
 + State-of-the-art automated discovery; finds subtle failures.  
 -- Expensive; requires careful calibration; not lightweight. \\
 
 \midrule
-\textbf{TAP (Tree-of-Attacks)} \cite{mehrotra2023tap} &
+\textbf{TAP (Tree-of-Attacks)} \cite{mehrotra2024tap} &
 Search-based automated jailbreaks, adversarial refinement tree, black-box optimization. &
 Black-box API models (OpenAI, Anthropic, etc.). Local models possible with wrappers. &
-\textcolor{gray}{No} – primarily single-turn; generates one-shot optimized attacks. &
+\textcolor{gray}{No} - primarily single-turn; generates one-shot optimized attacks. &
 Simple heuristic judges; optional LLM-as-a-judge extension. &
 + Extremely query-efficient; discovers novel jailbreaks.  
 -- Limited to single-turn; no conversational capabilities; not a full toolkit. \\
 
 \midrule
-\textbf{Prompt Injection Frameworks} \\ (e.g., HouYi) \cite{liu2023promptinjectionapps} &
+\textbf{Prompt Injection Frameworks} \\ (e.g., HouYi) \cite{liu2024promptinjection} &
 Prompt injection, indirect injection, document-based attacks, automated crawling and exploitation. &
 Targets LLM-integrated apps (not just raw models). &
-\textbf{Yes} – multi-step workflows across web/app interactions. &
+\textbf{Yes} - multi-step workflows across web/app interactions. &
 Task-specific checks; manual validation often required. &
 + Highly realistic; identifies real-world vulnerabilities.  
 -- Not general red-teaming against LLMs alone; focus on apps. \\
