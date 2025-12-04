@@ -14,13 +14,13 @@ These models power chatbots, code assistants, translation services, and creative
 However, their remarkable capabilities come with significant safety and ethical risks.
 LLMs can generate harmful, biased, misleading, or illegal content when subjected to carefully crafted adversarial inputs, a practice commonly known as \emph{jailbreaking}~\cite{wei2023jailbroken, zou2023universal}.
 
-Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{andrew2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable.
-In response, red teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, Meta AI) as a core component of LLM safety evaluation~\cite{openai2024redteaming}.
+Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{shaw2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable.
+In response, red teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2024redteaming}.
 
 With the adoption of the EU AI Act in 2024, systematic risk assessment including red teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
-Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development as it will be a legal requirement in the future.
+Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development.
 
-Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements, etc., that hinder adoption by smaller research teams and individual developers~\cite{purpur2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
+Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements, etc., that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
 This creates a clear need for a new, lightweight, developer-friendly red-teaming toolkit that lowers the barrier to LLM systematic safety testing.
 
 The main goal of this bachelor's thesis is therefore the design, implementation, and evaluation of a modular open-source red-teaming toolkit for large language models that addresses the identified shortcomings of current solutions.
@@ -35,7 +35,7 @@ Next, we survey the primary categories of safety risks and known vulnerability c
 
 We then turn to red-teaming methodology as adapted to LLMs — definitions, goals, and a taxonomy of test methods.
 
-Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors).
+Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors, etc.).
 
 Finally, we review evaluation metrics and benchmarks used to measure safety failures, and survey existing open-source tools and frameworks.
 
@@ -122,7 +122,7 @@ Modern red-teaming approaches in LLMs span from fully manual human-driven pen-te
 
   \item[Automated red teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
   
-  Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones~\cite{mehrotra2023tap}.
+  Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones~\cite{mehrotra2024tap}.
   
   Automated methods scale well, explore large prompt spaces, and can discover novel failures, but also risk producing unrealistic or trivial prompts — and often depend on the quality of the attacker/judge model and search strategy.
 \end{description}
@@ -149,7 +149,7 @@ Prompt injection refers to attacks where user-supplied input (or external conten
 
 This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines) because attackers can inject malicious instructions that the model treats as legitimate.
 
-Empirical studies have demonstrated that many deployed LLM-based applications are vulnerable to prompt injection — for example via the {\em HouYi} attack, which compromised dozens of applications in a black-box setting~\cite{liu2023promptinjectionapps}.
+Empirical studies have demonstrated that many deployed LLM-based applications are vulnerable to prompt injection — for example via the {\em HouYi} attack, which compromised dozens of applications in a black-box setting~\cite{liu2024promptinjection}.
 
 Other work has shown that even automated, universal prompt injection attacks remain effective under defensive measures~\cite{liu2024automaticpi}.
 
@@ -181,7 +181,7 @@ Beyond explicit instructions or injected content, adversaries may attempt advers
 
 Defenses based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
 
-Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2023certifying}.
+Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
 
 While promising, such methods are computationally expensive and may degrade user experience or model utility.
 
@@ -256,7 +256,7 @@ In response to the growing sophistication of attacks, some work focuses on harde
 
 For example, the framework “erase-and-check” provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size.
 
-This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions~\cite{kumar2023certifying}.
+This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions~\cite{kumar2025certifying}.
 
 While promising, such approaches are often computationally expensive and may impair user experience or model usability.
 
@@ -359,7 +359,7 @@ Task-specific checks; manual validation often required. &
 -- Not general red-teaming against LLMs alone; focus on apps. \\
 
 \midrule
-\textbf{Certified Safety Tools} \\ (Erase-and-Check) \cite{kumar2023certifying} &
+\textbf{Certified Safety Tools} \\ (Erase-and-Check) \cite{kumar2025certifying} &
 Defense: adversarial prompt removal, token deletion checks, suffix attack detection. &
 Model-agnostic; operates at prompt-processing stage. &
 N/A (defense, not attack). &

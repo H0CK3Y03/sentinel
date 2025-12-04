@@ -1,0 +1,136 @@
+\makeatletter
+\makeatother
+\begin{thebibliography}{10}
+
+\bibitem{belaire2025automatic}
+{\sc\bgroup}Belaire{\egroup}, R.; {\sc\bgroup}Sinha{\egroup}, A.
+  and~{\sc\bgroup}Varakantham{\egroup}, P.
+\newblock {\em Automatic LLM Red Teaming}.
+\newblock 2025.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2508.04451}}.
+
+\bibitem{yaser2023potential}
+{\sc\bgroup}Esmailzadeh{\egroup}, Y.
+\newblock {\em Potential Risks of ChatGPT: Implications for Counterterrorism
+  and International Security}.
+\newblock 2023.
+\newblock Available at:
+  ~{\small\url{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4461195}}.
+
+\bibitem{kumar2023certifying}
+{\sc\bgroup}Kumar{\egroup}, A.; {\sc\bgroup}Agarwal{\egroup}, C.;
+  {\sc\bgroup}Srinivas{\egroup}, S.; {\sc\bgroup}Li{\egroup}, A.~J.;
+  {\sc\bgroup}Feizi{\egroup}, S. et~al.
+\newblock {\em Certifying LLM Safety against Adversarial Prompting}.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2309.02705}}.
+
+\bibitem{liu2024automaticpi}
+{\sc\bgroup}Liu{\egroup}, X.; {\sc\bgroup}Yu{\egroup}, Z.;
+  {\sc\bgroup}Zhang{\egroup}, Y.; {\sc\bgroup}Zhang{\egroup}, N.
+  and~{\sc\bgroup}Xiao{\egroup}, C.
+\newblock {\em Automatic and Universal Prompt Injection Attacks against Large
+  Language Models}.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2403.04957}}.
+
+\bibitem{liu2023promptinjectionapps}
+{\sc\bgroup}Liu{\egroup}, Y.; {\sc\bgroup}Deng{\egroup}, G.;
+  {\sc\bgroup}Li{\egroup}, Y.; {\sc\bgroup}Wang{\egroup}, K.;
+  {\sc\bgroup}Wang{\egroup}, Z. et~al.
+\newblock {\em Prompt Injection attack against LLM-integrated Applications}.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2306.05499}}.
+
+\bibitem{mazeika2024harmbench}
+{\sc\bgroup}Mazeika{\egroup}, M.; {\sc\bgroup}Phan{\egroup}, L.;
+  {\sc\bgroup}Yin{\egroup}, X.; {\sc\bgroup}Zou{\egroup}, A.;
+  {\sc\bgroup}Wang{\egroup}, Z. et~al.
+\newblock {\em HarmBench: A Standardized Evaluation Framework for Automated Red
+  Teaming and Robust Refusal}.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2402.04249}}.
+
+\bibitem{mehrotra2023tap}
+{\sc\bgroup}Mehrotra{\egroup}, A.; {\sc\bgroup}Zampetakis{\egroup}, M.;
+  {\sc\bgroup}Kassianik{\egroup}, P.; {\sc\bgroup}Nelson{\egroup}, B.;
+  {\sc\bgroup}Anderson{\egroup}, H. et~al.
+\newblock {\em Tree of Attacks (TAP): Jailbreaking Black-Box LLMs
+  Automatically}.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2312.02119}}.
+
+\bibitem{munoz2024pyrit}
+{\sc\bgroup}Munoz{\egroup}, G. D.~L.; {\sc\bgroup}Minnich{\egroup}, A.~J.;
+  {\sc\bgroup}Lutz{\egroup}, R.; {\sc\bgroup}Lundeen{\egroup}, R.;
+  {\sc\bgroup}Dheekonda{\egroup}, R. S.~R. et~al.
+\newblock {\em Pyrit: A framework for security risk identification and red
+  teaming in generative ai system}.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2410.02828}}.
+
+\bibitem{openai2024redteaming}
+{\sc\bgroup}OpenAI{\egroup}.
+\newblock {\em Red Teaming Network}.
+\newblock 2023.
+\newblock Available at:
+  ~{\small\url{https://openai.com/blog/red-teaming-network}}.
+
+\bibitem{eu2024aiact}
+{\sc\bgroup}Parliament{\egroup}, E. and~{\sc\bgroup}Council{\egroup}.
+\newblock {\em Regulation (EU) 2024/1689 laying down harmonised rules on
+  artificial intelligence (Artificial Intelligence Act)}.
+\newblock 2024.
+\newblock Available at:
+  ~{\small\url{https://eur-lex.europa.eu/eli/reg/2024/1689/oj}}.
+
+\bibitem{schoepf2025madmax}
+{\sc\bgroup}Schoepf{\egroup}, S.; {\sc\bgroup}Hameed{\egroup}, M.~Z.;
+  {\sc\bgroup}Rawat{\egroup}, A.; {\sc\bgroup}Fraser{\egroup}, K.;
+  {\sc\bgroup}Zizzo{\egroup}, G. et~al.
+\newblock {\em MAD-MAX: Modular Adversarial Red Teaming of LLMs}.
+\newblock 2025.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2503.06253}}.
+
+\bibitem{andrew2025agonistic}
+{\sc\bgroup}Shaw{\egroup}, A.; {\sc\bgroup}Ye{\egroup}, A.;
+  {\sc\bgroup}Krishna{\egroup}, R. and~{\sc\bgroup}Zhang{\egroup}, A.~X.
+\newblock {\em Agonistic Image Generation: Unsettling the Hegemony of
+  Intention}.
+\newblock 2025.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2502.15242}}.
+
+\bibitem{vaswani2017attention}
+{\sc\bgroup}Vaswani{\egroup}, A.; {\sc\bgroup}Shazeer{\egroup}, N.;
+  {\sc\bgroup}Parmar{\egroup}, N.; {\sc\bgroup}Uszkoreit{\egroup}, J.;
+  {\sc\bgroup}Jones{\egroup}, L. et~al.
+\newblock Attention Is All You Need.
+\newblock {\em CoRR}, 2017, abs/1706.03762.
+\newblock Available at: ~{\small\url{http://arxiv.org/abs/1706.03762}}.
+
+\bibitem{wei2023jailbroken}
+{\sc\bgroup}Wei{\egroup}, A.; {\sc\bgroup}Haghtalab{\egroup}, N.
+  and~{\sc\bgroup}Steinhardt{\egroup}, J.
+\newblock {\em Jailbroken: How Does LLM Safety Training Fail?}
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2307.02483}}.
+
+\bibitem{xue2023trojllm}
+{\sc\bgroup}Xue{\egroup}, J.; {\sc\bgroup}Zheng{\egroup}, M.;
+  {\sc\bgroup}Hua{\egroup}, T.; {\sc\bgroup}Shen{\egroup}, Y.;
+  {\sc\bgroup}Liu{\egroup}, Y. et~al.
+\newblock {\em TrojLLM: A Black-box Trojan Prompt Attack on Large Language
+  Models}.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/2306.06815}}.
+
+\bibitem{zou2023universal}
+{\sc\bgroup}Zou{\egroup}, A.; {\sc\bgroup}Wang{\egroup}, Z.;
+  {\sc\bgroup}Carlini{\egroup}, N.; {\sc\bgroup}Nasr{\egroup}, M.;
+  {\sc\bgroup}Kolter{\egroup}, J.~Z. et~al.
+\newblock {\em Universal and Transferable Adversarial Attacks on Aligned
+  Language Models}.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://llm-attacks.org}}.
+
+\end{thebibliography}
