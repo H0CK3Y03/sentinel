@@ -80,20 +80,22 @@ The fact that surface-level filtering and instruction tuning can be bypassed ind
 
 LLM misuse and unintended outputs pose a broad array of risks.
 
-The following taxonomy, commonly adopted in recent red-teaming efforts, captures the primary threat vectors:
+The following taxonomy, commonly adopted in recent red-teaming efforts~\cite{purpura2025building, mazeika2024harmbench}, captures the primary threat vectors:
 
 \begin{itemize}
-  \item \textbf{Malicious usage:} generation of instructions or actionable content facilitating wrongdoing (e.g., bomb-making, illicit substances, hacking).  
-  \item \textbf{Harassment, hate, and discrimination:} outputs that demean or promote bias against individuals or protected groups.  
-  \item \textbf{Misinformation and hallucinations:} confidently stated false information, invented facts, or fabricated references.  
-  \item \textbf{Privacy violations:} unintended leakage of sensitive information, either from memorized training data or through malicious prompts.  
-  \item \textbf{Self-harm / dangerous content:} generation of content promoting self-harm, suicide, or exploitation (especially of minors).  
-  \item \textbf{Emergent misuse and behavioural failures:} including instruction-following failures, refusal evasion (the model ignoring safety instructions), social-engineering exploitation, or covert manipulation over multiple turns.  
+  \item \textbf{Malicious use:} generation of instructions or actionable content facilitating wrongdoing (e.g., construction of weapons or explosives, synthesis of illicit substances, or cyber intrusion).
+  \item \textbf{Harassment, hate, and discrimination:} outputs that demean, harass or promote bias against individuals or protected groups.
+  \item \textbf{Misinformation:} harmful or misleading claims that may influence user behaviour or beliefs.
+  \item \textbf{Hallucinations:} fabricated or unfounded statements presented with confidence.
+  \item \textbf{Privacy violations:} unintended leakage of sensitive information, either from memorised training data or through malicious prompts.
+  \item \textbf{Self-harm / dangerous content:} generation of content promoting self-harm, suicide, or exploitation (especially of minors).
+  \item \textbf{Emergent misuse and behavioural failures:} including instruction-following failures, refusal evasion (the model ignoring safety instructions), social-engineering exploitation, or covert manipulation over multiple turns.
+  \item \textbf{Tool misuse / unsafe actions:} harmful commands or unintended actions when LLMs interface with external tools (e.g., code execution, browser control, or file manipulation).
 \end{itemize}
 
 These categories correspond to those used in large-scale safety benchmarks and red-team evaluation suites.
 
-For example, frameworks such as {\em HarmBench} operationalize a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
+For example, frameworks such as {\em HarmBench} operationalise a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
 
 \section{Red Teaming: Definitions and Methodology}\label{sec:red-teaming-def}
 
@@ -123,7 +125,7 @@ Modern red-teaming approaches in LLMs span from fully manual human-driven pen-te
 
   \item[Rule-based / template-based testing:] uses curated prompt templates (e.g., standard jailbreaks, role-play prompts, obfuscation methods, encoded instructions) or transformation rules to generate adversarial inputs systematically.
   
-  This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalize to novel attacks.
+  This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalise to novel attacks.
 
   \item[Automated red teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
   
@@ -134,7 +136,7 @@ Modern red-teaming approaches in LLMs span from fully manual human-driven pen-te
 
 Automated red-teaming has recently been re-envisioned as a sequential, multi-turn process rather than isolated single-turn attempts.
 
-For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning to optimize long-horizon attacks over entire dialogue trajectories~\cite{belaire2025automatic}.
+For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning to optimise long-horizon attacks over entire dialogue trajectories~\cite{belaire2025automatic}.
 
 \section{Attack Taxonomy}\label{sec:attack-taxonomy}
 
@@ -166,7 +168,7 @@ Rather than achieve a jailbreak in a single prompt, adversaries may perform a se
 
 Multi-turn attacks may involve context poisoning, social-engineering style dialogue, bait-and-switch tactics, or incremental obfuscation.
 
-This vector is increasingly recognized as one of the most dangerous and under-evaluated.
+This vector is increasingly recognised as one of the most dangerous and under-evaluated.
 
 Recent research recasts automated red-teaming as a multi-turn optimization problem — which better reflects realistic adversarial scenarios — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content~\cite{belaire2025automatic}.
 
@@ -209,7 +211,7 @@ The following metrics and benchmarks are widely adopted in research and practice
   \item \textbf{Conversational / Trajectory Metrics:} in multi-turn attack scenarios, metrics may capture success over a dialogue trajectory (e.g., whether harmful content emerges at any point), time-to-failure, or complexity (number of turns needed).  
 \end{itemize}
 
-\subsection{Benchmarks and Standardized Suites}\label{sec:benchmarks}
+\subsection{Benchmarks and Standardised Suites}\label{sec:benchmarks}
 
 To enable systematic comparison across red-teaming methods and LLMs, standard benchmarks have recently been developed.
 
@@ -251,7 +253,7 @@ Its modular nature makes it flexible and extensible, but in practice integrating
 
 The recent work on fully automated, trajectory-based red teaming — recasting red teaming as a sequential decision-making process over entire dialogues — pushes the frontier further.
 
-For example, the automated red-teaming approach by Belaire et al. (2025) formalizes multi-turn red teaming as a Markov Decision Process (MDP), enabling attack policies to optimize over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
+For example, the automated red-teaming approach by Belaire et al. (2025) formalises multi-turn red teaming as a Markov Decision Process (MDP), enabling attack policies to optimise over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
 
 This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
@@ -340,7 +342,7 @@ LLM-as-a-judge, rule-based detectors, modular evaluation pipeline. &
 \textbf{Automatic LLM Red Teaming} \\ (Belaire et al. 2025) \cite{belaire2025automatic} &
 LLM-as-attacker, RL/HF-based optimisation, trajectory-level red teaming, multi-turn adversarial search. &
 API and local models; depends on model-in-the-loop capabilities. &
-\textbf{Yes} - multi-turn attacks optimized using RL / MDP formulation. &
+\textbf{Yes} - multi-turn attacks optimised using RL / MDP formulation. &
 LLM judges (safety classifiers, preference models). &
 + State-of-the-art automated discovery; finds subtle failures.  
 -- Expensive; requires careful calibration; not lightweight. \\
@@ -349,7 +351,7 @@ LLM judges (safety classifiers, preference models). &
 \textbf{TAP (Tree-of-Attacks)} \cite{mehrotra2024tap} &
 Search-based automated jailbreaks, adversarial refinement tree, black-box optimization. &
 Black-box API models (OpenAI, Anthropic, etc.). Local models possible with wrappers. &
-\textcolor{gray}{No} - primarily single-turn; generates one-shot optimized attacks. &
+\textcolor{gray}{No} - primarily single-turn; generates one-shot optimised attacks. &
 Simple heuristic judges; optional LLM-as-a-judge extension. &
 + Extremely query-efficient; discovers novel jailbreaks.  
 -- Limited to single-turn; no conversational capabilities; not a full toolkit. \\
