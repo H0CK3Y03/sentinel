@@ -1,2 +1,1 @@
-- Make pdf in work:
-& "C:\Users\adam.vesely\AppData\Local\Programs\MiKTeX\miktex\bin\x64\latexmk.exe" --max-print-line=10000 -synctex=1 -interaction=nonstopmode -file-line-error -pdf -outdir="C:/Users/adam.vesely/OneDrive - Thermo Fisher Scientific/Desktop/BT/thesis" "C:/Users/adam.vesely/OneDrive - Thermo Fisher Scientific/Desktop/BT/thesis/projekt.tex" *> .\latexmk_console.txt 2>&1; Get-Content .\latexmk_console.txt -Raw
+Red-teaming toolkit for LLMs

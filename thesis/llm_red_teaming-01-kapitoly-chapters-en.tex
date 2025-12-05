@@ -67,14 +67,14 @@ To mitigate risks from raw pre-trained models, developers commonly apply a pipel
 
 First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats~\cite{zhang2024scaling, stiennon2022learning}.
 
-Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a proximal policy optimization method (e.g., PPO) updates the model to align it to human preferences~\cite{ouyang2022training, schulman2017proximal}.
+Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimisation algorithm such as Proximal Policy Optimization (PPO) updates the model to align it to human preferences~\cite{ouyang2022training, schulman2017proximal}.
 
 Variants such as Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality~\cite{rafailov2024direct, lee2024rlaif}.
 
 Despite alignment efforts, evidence demonstrates that safety training is not foolproof.
 Behavioural failures persist, especially under adversarial or adversary-chosen inputs: prompt-based attacks and jailbreaks remain a major vulnerability class (cf.\ \cite{wei2023jailbroken, zou2023universal, perez2022ignore}).
 
-The fact that surface-level filtering and instruction tuning can be bypassed indicates that LLMs continue to rely on shallow heuristics rather than robust semantic safety guarantees.
+The fact that surface-level filtering and instruction tuning can be bypassed indicates that LLMs continue to rely on shallow heuristics rather than robust semantic safety guarantees~\cite{wei2023jailbroken, zou2023universal, perez2022ignore}.
 
 \section{LLM Safety Risks}\label{sec:risk-taxonomy}
 
