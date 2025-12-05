@@ -9,13 +9,13 @@
 \chapter{Introduction}\label{ch:introduction}
 
 The rapid advancement and widespread deployment of large language models (LLMs) have transformed natural-language interaction with computers.
-These models power chatbots, code assistants, translation services, and creative tools used daily by millions of users.
+These models now power chatbots, code assistants, translation systems, and creative tools used daily by millions of users.
 
 However, their remarkable capabilities come with significant safety and ethical risks.
 LLMs can generate harmful, biased, misleading, or illegal content when subjected to carefully crafted adversarial inputs, a practice commonly known as \emph{jailbreaking}~\cite{wei2023jailbroken, zou2023universal}.
 
-Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{shaw2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable.
-In response, red teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2024redteaming}.
+Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{shaw2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable to adversarial prompting.
+In response, red teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
 
 With the adoption of the EU AI Act in 2024, systematic risk assessment including red teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
 Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development.
@@ -24,6 +24,13 @@ Despite significant progress, most existing open-source red-teaming frameworks s
 This creates a clear need for a new, lightweight, developer-friendly red-teaming toolkit that lowers the barrier to LLM systematic safety testing.
 
 The main goal of this bachelor's thesis is therefore the design, implementation, and evaluation of a modular open-source red-teaming toolkit for large language models that addresses the identified shortcomings of current solutions.
+
+The remainder of this thesis is structured as follows:
+Chapter~\ref{ch:background} surveys the current state of research in LLM red teaming and reviews existing tools.
+Chapter~\ref{ch:design} presents the proposed system architecture.
+Chapter~\ref{ch:implementation} details the implementation of the red-teaming toolkit.
+Chapter~\ref{ch:evaluation} evaluates the toolkit on selected LLMs.
+Finally, Chapter~\ref{ch:conclusion} summarises the results and outlines directions for future work.
 
 \chapter{Background and Related Work}\label{ch:background}
 
@@ -35,7 +42,7 @@ Next, we survey the primary categories of safety risks and known vulnerability c
 
 We then turn to red-teaming methodology as adapted to LLMs — definitions, goals, and a taxonomy of test methods.
 
-Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors, etc.).
+Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors, etc.)
 
 Finally, we review evaluation metrics and benchmarks used to measure safety failures, and survey existing open-source tools and frameworks.
 
@@ -43,30 +50,28 @@ The chapter concludes with a synthesis of gaps in current tooling and evaluation
 
 \section{Large Language Models}\label{sec:llms}
 
-Large language models (LLMs) are sequence-to-sequence or autoregressive models based on the Transformer architecture~\cite{vaswani2017attention}.
+Large language models (LLMs) are sequence-to-sequence (encoder-decoder) or autoregressive (decoder) models based on the Transformer architecture~\cite{vaswani2017attention}.
 
 They are trained on massive, internet-scale corpora using a self-supervised objective such as next-token prediction.
+After pretraining, many high-performance models undergo instruction fine-tuning and additional alignment to become more useful and safer in downstream use~\cite{zhang2024scaling}.
 
-After pretraining, many high-performance models undergo instruction fine-tuning and additional alignment to become more useful and safer in downstream use.
-
-By 2025, publicly-available and research-grade LLMs often exceed tens to hundreds of billions of parameters, employing advanced architectural and optimization features (e.g., mixture-of-experts, retrieval augmentation, quantization-aware training).
+By 2025, publicly available and research-grade LLMs often exceed tens to hundreds of billions of parameters~\cite{lu2024blending}, and many incorporate advanced architectural and inference-optimization techniques such as mixture-of-experts layers~\cite{fedus2022switch}, retrieval-augmented generation~\cite{borgeaud2022improving}, or quantization-aware training for efficient deployment~\cite{dettmers2023qlora}.
 
 Because of the scale of their training data and capacity, LLMs encode a wide variety of linguistic patterns, factual knowledge, biases, and behavioural priors.
 
-This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviors that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation.
+This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviors that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation~\cite{wei2023jailbroken}.
 
 \subsection{Alignment and Safety Interventions}\label{sec:alignment}
 
 To mitigate risks from raw pre-trained models, developers commonly apply a pipeline of alignment techniques.
 
-First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats.
+First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats~\cite{zhang2024scaling, stiennon2022learning}.
 
-Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimization method (e.g., PPO) updates the model to align it to human preferences.
+Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a proximal policy optimization method (e.g., PPO) updates the model to align it to human preferences~\cite{ouyang2022training, schulman2017proximal}.
 
-Variants like Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality.
+Variants such as Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality~\cite{rafailov2024direct, lee2024rlaif}.
 
 Despite alignment efforts, evidence demonstrates that safety training is not foolproof.
-
 Behavioural failures persist, especially under adversarial or adversary-chosen inputs: prompt-based attacks and jailbreaks remain a major vulnerability class (cf.\ \cite{wei2023jailbroken, zou2023universal, perez2022ignore}).
 
 The fact that surface-level filtering and instruction tuning can be bypassed indicates that LLMs continue to rely on shallow heuristics rather than robust semantic safety guarantees.
@@ -372,6 +377,14 @@ Binary safety guarantee after checking. &
 \caption{Comparison of major LLM red-teaming frameworks, covering supported attack types, backend compatibility, multi-turn capabilities, evaluation methods, and key strengths and limitations.}
 \label{tab:framework-comparison}
 \end{table}
+
+\chapter{Design}\label{ch:design}
+
+\chapter{Implementation}\label{ch:implementation}
+
+\chapter{Evaluation}\label{ch:evaluation}
+
+\chapter{Conclusion}\label{ch:conclusion}
 
 
 % For compilation piecewise (see projekt.tex), it is necessary to uncomment it

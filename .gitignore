@@ -12,3 +12,4 @@
 *.ptc
 latexmk_console.txt
 latexmk_out.txt
+deleted/
