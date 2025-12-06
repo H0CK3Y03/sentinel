@@ -117,29 +117,23 @@ Modern red-teaming approaches in LLMs span from fully manual adversarial testing
 
 The following subsections describe manual, rule-based, and automated red-teaming methodologies in more detail.
 
-\subsection{Manual, Rule-Based and Automated Red-teaming}\label{sec:red-teaming-methods}
+\subsection{Manual, Rule-based and Automated Red-teaming}\label{sec:red-teaming-methods}
 
 \begin{description}
-  \item[Manual red-teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses.
-  
-  This approach benefits from human creativity and insight into real-world misuse, including social-engineering, context-aware manipulation, or subtle misuse cases.
-  
+  \item[Manual red-teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses~\cite{purpura2025building}.
+  This approach benefits from human creativity and insight into real-world misuse, including social-engineering, context-aware manipulation, and subtle or ambiguous scenarios.
   However, it is expensive, time-consuming, and often non-reproducible.
 
-  \item[Rule-based / template-based testing:] uses curated prompt templates (e.g., standard jailbreaks, role-play prompts, obfuscation methods, encoded instructions) or transformation rules to generate adversarial inputs systematically.
-  
-  This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalise to novel attacks.
+  \item[Rule-based / template-based testing:] uses curated prompt templates (e.g., standard jailbreaks, role-play prompts, obfuscation methods, encoded instructions) or transformation rules to generate adversarial inputs systematically~\cite{schoepf2025madmax, mazeika2024harmbench}.
+  This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalise to novel or adaptive attacks.
 
-  \item[Automated red-teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
-  
-  Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones~\cite{mehrotra2024tap}.
-  
-  Automated methods scale well, explore large prompt spaces, and can discover novel failures, but also risk producing unrealistic or trivial prompts — and often depend on the quality of the attacker/judge model and search strategy.
+  \item[Automated red-teaming:] algorithmic or model-in-the-loop generation of adversarial prompts, for example via search, optimisation, or by using another LLM as the attacker~\cite{schoepf2025madmax, belaire2025automatic}.
+  Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates in a tree-structured search and pruning unlikely attack paths~\cite{mehrotra2024tap}.
+  Automated methods scale well, explore large prompt spaces, and can discover novel failures, but may also generate unrealistic or trivial prompts, and often depend on the quality of the attacker or judge model and the underlying search strategy.
 \end{description}
 
 Automated red-teaming has recently been re-envisioned as a sequential, multi-turn process rather than isolated single-turn attempts.
-
-For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning to optimise long-horizon attacks over entire dialogue trajectories~\cite{belaire2025automatic}.
+For example, recent work models red-teaming as a Markov Decision Process (MDP), using hierarchical reinforcement learning (RL) to optimise long-horizon attacks over entire dialogue trajectories~\cite{belaire2025automatic}.
 
 \section{Attack Taxonomy}\label{sec:attack-taxonomy}
 
