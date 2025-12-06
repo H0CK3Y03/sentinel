@@ -161,7 +161,10 @@ For example, recent work models red-teaming as a Markov Decision Process (MDP), 
 
 \section{Attack Taxonomy}\label{sec:attack-taxonomy}
 
-Here we outline the main classes of attacks exploited in LLM red-teaming, including prompt-based attacks, injection attacks, multi-turn manipulations, universal triggers, and trojan/backdoor-style vulnerabilities.
+Adversarial attacks against LLMs span a diverse space of techniques that exploit different aspects of model behaviour and prompting dynamics.
+Organising these attacks into a taxonomy is useful for understanding their mechanisms, comparing red-teaming methods, and designing systematic evaluation pipelines~\cite{purpura2025building}.
+
+This section surveys the primary attack classes considered in contemporary LLM red-teaming: single-turn jailbreaks, prompt-injection attacks, multi-turn conversational manipulation, universal or transferable triggers, and trojan or backdoor-style vulnerabilities~\cite{schoepf2025madmax}.
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
