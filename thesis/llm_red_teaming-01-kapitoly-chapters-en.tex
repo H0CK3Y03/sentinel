@@ -97,22 +97,25 @@ These categories correspond to those used in large-scale safety benchmarks and r
 
 For example, frameworks such as {\em HarmBench} operationalise a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
 
-\section{Red Teaming: Definitions and Methodology}\label{sec:red-teaming-def}
+\section{Red-teaming: Definitions and Methodology}\label{sec:red-teaming-def}
 
-Originally developed in cybersecurity and military contexts, \emph{red teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment.
+Originally developed in cybersecurity and military contexts, \emph{red-teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment~\cite{purpura2025building}.
 
-In the context of LLMs, red teaming denotes systematic probing of model behaviour via adversarial prompts or inputs designed to circumvent safety and alignment measures, with the goal of discovering previously unknown failure modes, measuring their prevalence, and informing robust defenses.
+In the context of LLMs, red-teaming denotes systematic probing of model behaviour via intentionally crafted adversarial prompts or inputs designed to circumvent safety and alignment measures, with the goal of discovering previously unknown failure modes, measuring their prevalence, and informing robust defences~\cite{schoepf2025madmax, belaire2025automatic}.
 
-Red-team campaigns in LLM settings typically have several objectives:
+Red-teaming campaigns in LLM settings typically have several objectives~\cite{purpura2025building, schoepf2025madmax}:
 
 \begin{itemize}
   \item \textbf{Discovery:} reveal novel, previously undocumented failure modes (e.g., new jailbreak styles, multi-turn attack vectors, prompt injection in application contexts).  
-  \item \textbf{Quantification:} estimate how often a model fails under adversarial conditions, enabling comparison across models and defense strategies.  
+  \item \textbf{Quantification:} estimate how often a model fails under adversarial conditions, enabling comparison across models and defence strategies.  
   \item \textbf{Reproducibility:} produce repeatable test cases and evaluation pipelines so that safety regressions can be detected over time.  
-  \item \textbf{Defense hardening:} feed findings back into model tuning, safety filters, or deployment guardrails to reduce vulnerability.  
+  \item \textbf{Defence hardening:} feed findings back into model tuning, safety filters, or deployment guardrails to reduce vulnerability.  
 \end{itemize}
 
-Modern red-teaming approaches in LLMs span from fully manual human-driven pen-testing to automated pipelines combining generation, execution, and evaluation.
+Unlike static benchmarks, red-teaming targets the worst-case behaviour of a model rather than its average-case performance, focusing on adversarial inputs specifically crafted to expose vulnerabilities~\cite{mazeika2024harmbench, schoepf2025madmax}.
+Modern red-teaming approaches in LLMs span from fully manual adversarial testing to automated pipelines that integrate adversarial prompt generation, execution, and evaluation.
+
+The following subsections describe manual, rule-based, and automated red-teaming methodologies in more detail.
 
 \subsection{Manual, Rule-Based and Automated Red Teaming}\label{sec:red-teaming-methods}
 
@@ -186,7 +189,7 @@ Such attacks bypass input sanitization heuristics because the trigger is embedde
 
 Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertion, deletion, or encoding — i.e., minimal but adversarial changes that remain semantically similar to benign prompts but cause the model to deviate.
 
-Defenses based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
+Defences based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
 
 Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
 
@@ -206,7 +209,7 @@ The following metrics and benchmarks are widely adopted in research and practice
   \item \textbf{Attack Success Rate (ASR):} the proportion of adversarial attempts (prompts) that succeed in eliciting harmful or policy-violating outputs. ASR is the most common metric, but it depends heavily on the definition of “harmful” and on the quality of the judge (classifier, LLM-judge, human).  
   \item \textbf{Refusal Bypass Rate:} a variant of ASR that measures how often safe-mode refusals or safety filters are bypassed — i.e., the model issues a disallowed output rather than refusing the request.  
   \item \textbf{Judge Reliability Metrics:} when using automated judges (regex, classifier, LLM-based), it is crucial to measure false positives / false negatives, calibration error, and inter-annotator agreement (if doing human calibration). Poor judges can substantially distort ASR and other metrics.  
-  \item \textbf{Robustness Metrics:} measure how stable attacks (or defenses) are under variations — e.g., paraphrase of prompt, different model temperature, different seeds, context shuffling, or small perturbations.  
+  \item \textbf{Robustness Metrics:} measure how stable attacks (or defences) are under variations — e.g., paraphrase of prompt, different model temperature, different seeds, context shuffling, or small perturbations.  
   \item \textbf{Transferability / Generality:} measure how well attacks discovered on one model or configuration transfer to other models, prompts, or deployments.  
   \item \textbf{Conversational / Trajectory Metrics:} in multi-turn attack scenarios, metrics may capture success over a dialogue trajectory (e.g., whether harmful content emerges at any point), time-to-failure, or complexity (number of turns needed).  
 \end{itemize}
@@ -215,9 +218,9 @@ The following metrics and benchmarks are widely adopted in research and practice
 
 To enable systematic comparison across red-teaming methods and LLMs, standard benchmarks have recently been developed.
 
-A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods (18 methods) and a diverse set of target models and defenses (33 LLMs / defense settings)~\cite{mazeika2024harmbench}.
+A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods (18 methods) and a diverse set of target models and defences (33 LLMs / defence settings)~\cite{mazeika2024harmbench}.
 
-HarmBench enables reproducible large-scale red-team evaluation and supports both attack and defense-side experiments.
+HarmBench enables reproducible large-scale red-team evaluation and supports both attack and defence-side experiments.
 
 Its release marks a milestone toward standardizing LLM safety evaluation pipelines.
 
@@ -257,7 +260,7 @@ For example, the automated red-teaming approach by Belaire et al. (2025) formali
 
 This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
-\subsection{Defense-oriented and Certified Safety Approaches}\label{sec:defenses}
+\subsection{Defence-oriented and Certified Safety Approaches}\label{sec:defences}
 
 In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting.
 
@@ -267,7 +270,7 @@ This method recomputes safety classification after systematically removing token
 
 While promising, such approaches are often computationally expensive and may impair user experience or model usability.
 
-Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defense strategies, necessitating robust input sanitization, runtime monitoring, and possibly dynamic prompt sanitization or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
+Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defence strategies, necessitating robust input sanitization, runtime monitoring, and possibly dynamic prompt sanitization or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
 
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
@@ -367,9 +370,9 @@ Task-specific checks; manual validation often required. &
 
 \midrule
 \textbf{Certified Safety Tools} \\ (Erase-and-Check) \cite{kumar2025certifying} &
-Defense: adversarial prompt removal, token deletion checks, suffix attack detection. &
+Defence: adversarial prompt removal, token deletion checks, suffix attack detection. &
 Model-agnostic; operates at prompt-processing stage. &
-N/A (defense, not attack). &
+N/A (defence, not attack). &
 Binary safety guarantee after checking. &
 + Formal safety guarantees for bounded adversarial prompts.  
 -- Very slow; not suitable for large-scale red-teaming. \\
