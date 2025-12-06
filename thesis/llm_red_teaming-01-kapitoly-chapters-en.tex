@@ -15,9 +15,9 @@ However, their remarkable capabilities come with significant safety and ethical 
 LLMs can generate harmful, biased, misleading, or illegal content when subjected to carefully crafted adversarial inputs, a practice commonly known as \emph{jailbreaking}~\cite{wei2023jailbroken, zou2023universal}.
 
 Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{shaw2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable to adversarial prompting.
-In response, red teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
+In response, red-teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
 
-With the adoption of the EU AI Act in 2024, systematic risk assessment including red teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
+With the adoption of the EU AI Act in 2024, systematic risk assessment including red-teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
 Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development.
 
 Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements, etc., that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
@@ -26,7 +26,7 @@ This creates a clear need for a new, lightweight, developer-friendly red-teaming
 The main goal of this bachelor's thesis is therefore the design, implementation, and evaluation of a modular open-source red-teaming toolkit for large language models that addresses the identified shortcomings of current solutions.
 
 The remainder of this thesis is structured as follows:
-Chapter~\ref{ch:background} surveys the current state of research in LLM red teaming and reviews existing tools.
+Chapter~\ref{ch:background} surveys the current state of research in LLM red-teaming and reviews existing tools.
 Chapter~\ref{ch:design} presents the proposed system architecture.
 Chapter~\ref{ch:implementation} details the implementation of the red-teaming toolkit.
 Chapter~\ref{ch:evaluation} evaluates the toolkit on selected LLMs.
@@ -117,10 +117,10 @@ Modern red-teaming approaches in LLMs span from fully manual adversarial testing
 
 The following subsections describe manual, rule-based, and automated red-teaming methodologies in more detail.
 
-\subsection{Manual, Rule-Based and Automated Red Teaming}\label{sec:red-teaming-methods}
+\subsection{Manual, Rule-Based and Automated Red-teaming}\label{sec:red-teaming-methods}
 
 \begin{description}
-  \item[Manual red teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses.
+  \item[Manual red-teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses.
   
   This approach benefits from human creativity and insight into real-world misuse, including social-engineering, context-aware manipulation, or subtle misuse cases.
   
@@ -130,7 +130,7 @@ The following subsections describe manual, rule-based, and automated red-teaming
   
   This method is reproducible and simple, but often limited to discovering known failure classes, and does not generalise to novel attacks.
 
-  \item[Automated red teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
+  \item[Automated red-teaming:] algorithmic or model-in-the-loop generation of adversarial prompts — e.g., via search, optimization, or by using another LLM as attacker.
   
   Notable work in this space includes {\em Tree of Attacks (TAP)} which automatically generates jailbreak prompts against black-box LLMs by iteratively refining candidates and pruning unlikely ones~\cite{mehrotra2024tap}.
   
@@ -254,9 +254,9 @@ Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming fr
 
 Its modular nature makes it flexible and extensible, but in practice integrating it with diverse model runtimes (local LLaMA variants, API-based models, multi-modal models) and scaling up to large-scale red-teaming remains challenging due to compute cost, model compatibility, and evaluation infrastructure requirements.
 
-The recent work on fully automated, trajectory-based red teaming — recasting red teaming as a sequential decision-making process over entire dialogues — pushes the frontier further.
+The recent work on fully automated, trajectory-based red-teaming — recasting red-teaming as a sequential decision-making process over entire dialogues — pushes the frontier further.
 
-For example, the automated red-teaming approach by Belaire et al. (2025) formalises multi-turn red teaming as a Markov Decision Process (MDP), enabling attack policies to optimise over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
+For example, the automated red-teaming approach by Belaire et al. (2025) formalises multi-turn red-teaming as a Markov Decision Process (MDP), enabling attack policies to optimise over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
 
 This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
@@ -342,8 +342,8 @@ LLM-as-a-judge, rule-based detectors, modular evaluation pipeline. &
 -- High compute requirements; complex to deploy; best suited for labs. \\
 
 \midrule
-\textbf{Automatic LLM Red Teaming} \\ (Belaire et al. 2025) \cite{belaire2025automatic} &
-LLM-as-attacker, RL/HF-based optimisation, trajectory-level red teaming, multi-turn adversarial search. &
+\textbf{Automatic LLM Red-teaming} \\ (Belaire et al. 2025) \cite{belaire2025automatic} &
+LLM-as-attacker, RL/HF-based optimisation, trajectory-level red-teaming, multi-turn adversarial search. &
 API and local models; depends on model-in-the-loop capabilities. &
 \textbf{Yes} - multi-turn attacks optimised using RL / MDP formulation. &
 LLM judges (safety classifiers, preference models). &
