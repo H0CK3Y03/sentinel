@@ -15,12 +15,15 @@ However, their remarkable capabilities come with significant safety and ethical 
 LLMs can generate harmful, biased, misleading, or illegal content when subjected to carefully crafted adversarial inputs, a practice commonly known as \emph{jailbreaking}~\cite{wei2023jailbroken, zou2023universal}.
 
 Real-world incidents such as ChatGPT being tricked into providing bomb-making instructions~\cite{yaser2023potential}, or Gemini's image-generation controversy~\cite{shaw2025agonistic}, have demonstrated that even flagship commercial models remain vulnerable to adversarial prompting.
-In response, red-teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind, etc.) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
+In response, red-teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
+
+Beyond model-level behaviour, LLMs are embedded in applications and services where integration and deployment issues create additional, system-level risks.
+Industry guidance such as the OWASP Top 10 for Large Language Model Applications highlights a set of practical deployment vulnerabilities — for example prompt injection, insecure output handling, insecure plugin design, and excessive agency — that are distinct from but complementary to model-centred harms~\cite{owasp2025llm, owasp2025top}.
 
 With the adoption of the EU AI Act in 2024, systematic risk assessment including red-teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
 Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development.
 
-Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements, etc., that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
+Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
 This creates a clear need for a new, lightweight, developer-friendly red-teaming toolkit that lowers the barrier to LLM systematic safety testing.
 
 The main goal of this bachelor's thesis is therefore the design, implementation, and evaluation of a modular open-source red-teaming toolkit for large language models that addresses the identified shortcomings of current solutions.
@@ -42,7 +45,7 @@ Next, we survey the primary categories of safety risks and known vulnerability c
 
 We then turn to red-teaming methodology as adapted to LLMs — definitions, goals, and a taxonomy of test methods.
 
-Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors, etc.)
+Subsequently, we describe common attack techniques (single-turn, multi-turn, prompt injection, universal triggers, trojans/backdoors)
 
 Finally, we review evaluation metrics and benchmarks used to measure safety failures, and survey existing open-source tools and frameworks.
 
@@ -97,11 +100,32 @@ These categories correspond to those used in large-scale safety benchmarks and r
 
 For example, frameworks such as {\em HarmBench} operationalise a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
 
+\subsection{Application- and System-level Risks: OWASP LLM Top 10 (2025)}\label{sec:owasp}
+
+Beyond model-level behavioural vulnerabilities, real-world LLM deployments introduce additional system and integration risks.
+The OWASP LLM Top 10 (2025)~\cite{owasp2025top} provides an industry-oriented overview of common failure modes encountered in practical LLM-based systems.
+For completeness, the full list is provided below, together with indicative categories reflecting the level at which each risk typically manifests:
+
+\begin{itemize}
+    \item \textbf{LLM01: Prompt Injection} — crafted inputs override or manipulate system instructions. \emph{(Model-level)}
+    \item \textbf{LLM02: Sensitive Information Disclosure} — unintended leakage of private or memorised data. \emph{(Model-level)}
+    \item \textbf{LLM03: Supply Chain Vulnerabilities} — risks arising from compromised datasets, model weights, or third-party components. \emph{(Deployment-level)}
+    \item \textbf{LLM04: Data and Model Poisoning} — malicious training or fine-tuning data influencing model behaviour. \emph{(Training-level)}
+    \item \textbf{LLM05: Improper Output Handling} — insufficient sanitisation or validation of model outputs. \emph{(Application-level)}
+    \item \textbf{LLM06: Excessive Agency} — autonomous or uncontrolled agent actions producing unintended effects. \emph{(Agent-level)}
+    \item \textbf{LLM07: System Prompt Leakage} — extraction of hidden or system-level instructions. \emph{(Model-level)}
+    \item \textbf{LLM08: Vector and Embedding Weaknesses} — vulnerabilities in retrieval-augmented generation (RAG) pipelines or embedding stores. \emph{(RAG-level)}
+    \item \textbf{LLM09: Misinformation} — confident but incorrect or misleading outputs. \emph{(Model-level)}
+    \item \textbf{LLM10: Unbounded Consumption} — excessive resource usage leading to cost escalation or denial-of-service. \emph{(Operational-level)}
+\end{itemize}
+
 \section{Red-teaming: Definitions and Methodology}\label{sec:red-teaming-def}
 
 Originally developed in cybersecurity and military contexts, \emph{red-teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment~\cite{purpura2025building}.
 
 In the context of LLMs, red-teaming denotes systematic probing of model behaviour via intentionally crafted adversarial prompts or inputs designed to circumvent safety and alignment measures, with the goal of discovering previously unknown failure modes, measuring their prevalence, and informing robust defences~\cite{schoepf2025madmax, belaire2025automatic}.
+
+\newpage
 
 Red-teaming campaigns in LLM settings typically have several objectives~\cite{purpura2025building, schoepf2025madmax}:
 
@@ -137,13 +161,13 @@ For example, recent work models red-teaming as a Markov Decision Process (MDP), 
 
 \section{Attack Taxonomy}\label{sec:attack-taxonomy}
 
-Here we outline the main classes of attacks exploited in LLM red-teaming, including prompt-based attacks, injection attacks, multi-turn manipulations, universal triggers, and trojan/backdoor style vulnerabilities.
+Here we outline the main classes of attacks exploited in LLM red-teaming, including prompt-based attacks, injection attacks, multi-turn manipulations, universal triggers, and trojan/backdoor-style vulnerabilities.
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
 Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions.
 
-Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation (to hide disallowed instructions), and other prompt-engineering tricks.
+Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation (to hide disallowed instructions), and other prompt-engineering tricks~\cite{perez2022ignore}.
 
 Despite alignment training, many models remain vulnerable to such simple attacks~\cite{wei2023jailbroken, zou2023universal}.
 
