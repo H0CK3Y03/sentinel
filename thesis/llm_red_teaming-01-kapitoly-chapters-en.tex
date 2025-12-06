@@ -168,9 +168,9 @@ This section surveys the primary attack classes considered in contemporary LLM r
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
-Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions.
+Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
 
-Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation (to hide disallowed instructions), and other prompt-engineering tricks~\cite{perez2022ignore}.
+Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation to hide disallowed instructions, and other prompt-engineering strategies~\cite{perez2022ignore}.
 
 Despite alignment training, many models remain vulnerable to such simple attacks~\cite{wei2023jailbroken, zou2023universal}.
 
