@@ -168,7 +168,7 @@ This section surveys the primary attack classes considered in contemporary LLM r
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
-Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
+Single-turn jailbreaks are adversarial prompts supplied in one shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
 
 Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation to hide disallowed instructions, and other prompt-engineering strategies~\cite{perez2022ignore}.
 
@@ -176,15 +176,12 @@ Despite alignment training, many models remain vulnerable to such simple attacks
 
 \subsection{Prompt Injection}\label{sec:prompt-injection}
 
-Prompt injection refers to attacks where user-supplied input (or external content, in the case of integrated applications) is directly interpreted by the LLM as instructions, potentially overriding or modifying hidden system prompts.
-
-This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines) because attackers can inject malicious instructions that the model treats as legitimate.
-
+Prompt injection refers to attacks where user-supplied input (or external content, in the case of integrated applications) is directly interpreted by the LLM as instructions, potentially overriding or modifying hidden system prompts~\cite{perez2022ignore}.
+This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines), because attackers can inject maliciously crafted instructions that the model interprets as legitimate.
 Empirical studies have demonstrated that many deployed LLM-based applications are vulnerable to prompt injection — for example via the {\em HouYi} attack, which compromised dozens of applications in a black-box setting~\cite{liu2024promptinjection}.
-
 Other work has shown that even automated, universal prompt injection attacks remain effective under defensive measures~\cite{liu2024automaticpi}.
 
-Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{owasp2025llm}.
+Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{owasp2025llm, owasp2025top}.
 
 \subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
 
