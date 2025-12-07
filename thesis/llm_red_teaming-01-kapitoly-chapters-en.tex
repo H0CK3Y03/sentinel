@@ -228,17 +228,14 @@ The following metrics and benchmarks are widely adopted in contemporary LLM safe
 
 \subsection{Benchmarks and Standardised Suites}\label{sec:benchmarks}
 
-To enable systematic comparison across red-teaming methods and LLMs, standard benchmarks have recently been developed.
+To enable systematic comparison across red-teaming methods and LLMs, several standard benchmarks have recently been developed.
+A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods and a diverse set of target models and defences~\cite{mazeika2024harmbench}.
 
-A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods (18 methods) and a diverse set of target models and defences (33 LLMs / defence settings)~\cite{mazeika2024harmbench}.
-
-HarmBench enables reproducible large-scale red-team evaluation and supports both attack and defence-side experiments.
-
+HarmBench enables reproducible large-scale red-team evaluation and supports both attack- and defence-side experiments.
 Its release marks a milestone toward standardising LLM safety evaluation pipelines.
 
 Despite this progress, many prior works still rely on ad-hoc prompt sets, non-public prompt libraries, or private internal red-team pipelines.
-
-In addition, while single-turn attack benchmarks are relatively common, multi-turn / conversational red-teaming remains underrepresented in publicly available benchmark suites.
+In addition, while single-turn attack benchmarks are relatively common, multi-turn or conversational red-teaming remains underrepresented in publicly available benchmark suites.
 
 \section{Open-source Red-Teaming Tools and Frameworks}\label{sec:tool-survey}
 
