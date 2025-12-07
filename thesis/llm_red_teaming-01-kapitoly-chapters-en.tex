@@ -58,7 +58,7 @@ Large language models (LLMs) are sequence-to-sequence (encoder-decoder) or autor
 They are trained on massive, internet-scale corpora using a self-supervised objective such as next-token prediction.
 After pretraining, many high-performance models undergo instruction fine-tuning and additional alignment to become more useful and safer in downstream use~\cite{zhang2024scaling}.
 
-By 2025, publicly available and research-grade LLMs often exceed tens to hundreds of billions of parameters~\cite{lu2024blending}, and many incorporate advanced architectural and inference-optimization techniques such as mixture-of-experts layers~\cite{fedus2022switch}, retrieval-augmented generation~\cite{borgeaud2022improving}, or quantization-aware training for efficient deployment~\cite{dettmers2023qlora}.
+By 2025, publicly available and research-grade LLMs often exceed tens to hundreds of billions of parameters~\cite{lu2024blending}, and many incorporate advanced architectural and inference-optimisation techniques such as mixture-of-experts layers~\cite{fedus2022switch}, retrieval-augmented generation~\cite{borgeaud2022improving}, or quantisation-aware training for efficient deployment~\cite{dettmers2023qlora}.
 
 Because of the scale of their training data and capacity, LLMs encode a wide variety of linguistic patterns, factual knowledge, biases, and behavioural priors.
 
@@ -70,9 +70,9 @@ To mitigate risks from raw pre-trained models, developers commonly apply a pipel
 
 First, supervised fine-tuning (SFT) on curated instruction-following datasets helps the model adhere to desired task formats~\cite{zhang2024scaling, stiennon2022learning}.
 
-Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimisation algorithm such as Proximal Policy Optimization (PPO) updates the model to align it to human preferences~\cite{ouyang2022training, schulman2017proximal}.
+Subsequently, reinforcement learning from human feedback (RLHF) is often used: human annotators rate model outputs, a reward model is trained on those ratings, and a policy optimisation algorithm such as Proximal Policy Optimisation (PPO) updates the model to align it to human preferences~\cite{ouyang2022training, schulman2017proximal}.
 
-Variants such as Direct Preference Optimization (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality~\cite{rafailov2024direct, lee2024rlaif}.
+Variants such as Direct Preference Optimisation (DPO) or RLAIF (reinforcement learning from AI feedback) aim to improve efficiency and scalability of alignment without sacrificing safety or quality~\cite{rafailov2024direct, lee2024rlaif}.
 
 Despite alignment efforts, evidence demonstrates that safety training is not foolproof.
 Behavioural failures persist, especially under adversarial or adversary-chosen inputs: prompt-based attacks and jailbreaks remain a major vulnerability class (cf.\ \cite{wei2023jailbroken, zou2023universal, perez2022ignore}).
@@ -194,19 +194,17 @@ Recent research recasts automated red-teaming as a multi-turn optimisation probl
 
 \subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{sec:universal}
 
-Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models.
-
+Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models~\cite{zou2023universal}.
 This makes the attack highly reusable and dangerous.
 
-One example is the black-box Trojan prompt attack framework {\em TrojLLM}, which demonstrates that universal stealthy triggers can be discovered for widely-used LLM APIs such as GPT-3.5 and GPT-4, enabling malicious manipulation across diverse prompt inputs~\cite{xue2023trojllm}.
-
-Such attacks bypass input sanitization heuristics because the trigger is embedded in seemingly benign inputs.
+One example is the black-box Trojan prompt attack framework {\em TrojLLM}, which demonstrates that universal stealthy triggers can be discovered for widely-used LLM architectures and APIs, enabling malicious manipulation across diverse prompt inputs~\cite{xue2023trojllm}.
+Such attacks bypass input sanitisation heuristics because the trigger is embedded in seemingly benign inputs.
 
 \subsection{Prompt-based Evasion and Adversarial Perturbations}\label{sec:perturbation}
 
 Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertion, deletion, or encoding — i.e., minimal but adversarial changes that remain semantically similar to benign prompts but cause the model to deviate.
 
-Defences based on sanitization or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
+Defences based on sanitisation or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
 
 Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
 
@@ -239,7 +237,7 @@ A prominent example is {\em HarmBench}, which provides an open-source evaluation
 
 HarmBench enables reproducible large-scale red-team evaluation and supports both attack and defence-side experiments.
 
-Its release marks a milestone toward standardizing LLM safety evaluation pipelines.
+Its release marks a milestone toward standardising LLM safety evaluation pipelines.
 
 Despite this progress, many prior works still rely on ad-hoc prompt sets, non-public prompt libraries, or private internal red-team pipelines.
 
@@ -287,7 +285,7 @@ This method recomputes safety classification after systematically removing token
 
 While promising, such approaches are often computationally expensive and may impair user experience or model usability.
 
-Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defence strategies, necessitating robust input sanitization, runtime monitoring, and possibly dynamic prompt sanitization or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
+Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defence strategies, necessitating robust input sanitisation, runtime monitoring, and possibly dynamic prompt sanitisation or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
 
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
@@ -369,7 +367,7 @@ LLM judges (safety classifiers, preference models). &
 
 \midrule
 \textbf{TAP (Tree-of-Attacks)} \cite{mehrotra2024tap} &
-Search-based automated jailbreaks, adversarial refinement tree, black-box optimization. &
+Search-based automated jailbreaks, adversarial refinement tree, black-box optimisation. &
 Black-box API models (OpenAI, Anthropic, etc.). Local models possible with wrappers. &
 \textcolor{gray}{No} - primarily single-turn; generates one-shot optimised attacks. &
 Simple heuristic judges; optional LLM-as-a-judge extension. &
