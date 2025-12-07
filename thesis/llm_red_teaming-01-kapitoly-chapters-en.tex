@@ -202,13 +202,11 @@ Such attacks bypass input sanitisation heuristics because the trigger is embedde
 
 \subsection{Prompt-based Evasion and Adversarial Perturbations}\label{sec:perturbation}
 
-Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertion, deletion, or encoding — i.e., minimal but adversarial changes that remain semantically similar to benign prompts but cause the model to deviate.
+Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertions, deletions, or encodings — minimal but adversarial changes that remain semantically similar to benign prompts yet cause the model to deviate~\cite{zou2023universal}.
 
-Defences based on sanitisation or heuristic filtering often fail to catch these, especially in the presence of context sensitivity or long prompts.
-
-Certified-safety approaches have been proposed to mitigate this class: e.g., erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
-
-While promising, such methods are computationally expensive and may degrade user experience or model utility.
+Defenses based on sanitisation or heuristic filtering often fail to detect such manipulations, especially in the presence of context sensitivity or long prompts.
+Certified-safety approaches have been proposed to mitigate this class: for example, erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
+While promising, these methods are computationally expensive and may degrade user experience or model utility.
 
 Because these perturbation-based attacks operate at the token level and can be obfuscated, they represent a difficult-to-detect threat, especially when combined with other attack modalities (multi-turn, universal triggers, trojans).
 
