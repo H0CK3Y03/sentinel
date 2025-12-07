@@ -168,7 +168,7 @@ This section surveys the primary attack classes considered in contemporary LLM r
 
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
-Single-turn jailbreaks are adversarial prompts supplied in one shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
+Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
 
 Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation to hide disallowed instructions, and other prompt-engineering strategies~\cite{perez2022ignore}.
 
@@ -185,13 +185,12 @@ Prompt injection remains among the most significant security threats for LLM-bas
 
 \subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
 
-Rather than achieve a jailbreak in a single prompt, adversaries may perform a series of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model's inability to consistently refuse undesirable requests.
+Rather than achieve a jailbreak in a single prompt, adversaries may perform a sequence of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model's inability to consistently refuse undesirable requests~\cite{wei2023jailbroken}.
 
 Multi-turn attacks may involve context poisoning, social-engineering style dialogue, bait-and-switch tactics, or incremental obfuscation.
+This vector is increasingly recognised as one of the most dangerous and under-evaluated, as multi-step interactions more closely resemble realistic misuse scenarios.
 
-This vector is increasingly recognised as one of the most dangerous and under-evaluated.
-
-Recent research recasts automated red-teaming as a multi-turn optimization problem — which better reflects realistic adversarial scenarios — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content~\cite{belaire2025automatic}.
+Recent research recasts automated red-teaming as a multi-turn optimisation problem — better capturing long-horizon adversarial strategies — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content~\cite{belaire2025automatic}.
 
 \subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{sec:universal}
 
