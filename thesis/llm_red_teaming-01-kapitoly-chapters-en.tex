@@ -204,7 +204,7 @@ Such attacks bypass input sanitisation heuristics because the trigger is embedde
 
 Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertions, deletions, or encodings — minimal but adversarial changes that remain semantically similar to benign prompts yet cause the model to deviate~\cite{zou2023universal}.
 
-Defenses based on sanitisation or heuristic filtering often fail to detect such manipulations, especially in the presence of context sensitivity or long prompts.
+Defences based on sanitisation or heuristic filtering often fail to detect such manipulations, especially in the presence of context sensitivity or long prompts.
 Certified-safety approaches have been proposed to mitigate this class: for example, erase-and-check, which systematically removes tokens and reruns safety filters to detect adversarial prompt manipulations, providing (under assumptions) a safety guarantee against insertions, suffixes, or adversarial infusions up to a bounded size~\cite{kumar2025certifying}.
 While promising, these methods are computationally expensive and may degrade user experience or model utility.
 
@@ -212,18 +212,18 @@ Because these perturbation-based attacks operate at the token level and can be o
 
 \section{Evaluation Metrics and Benchmarks}\label{sec:evaluation}
 
-Robust and systematic evaluation is critical for red-teaming, as it enables meaningful comparison of models, attack strategies, and defenses.
+Robust and systematic evaluation is critical for red-teaming, as it enables meaningful comparison of models, attack strategies, and defences.
 The following metrics and benchmarks are widely adopted in contemporary LLM safety research and practice.
 
 \subsection{Quantitative Metrics}\label{sec:metrics-quant}
 
 \begin{itemize}
-  \item \textbf{Attack Success Rate (ASR):} the proportion of adversarial attempts (prompts) that succeed in eliciting harmful or policy-violating outputs. ASR is the most common metric, but it depends heavily on the definition of “harmful” and on the quality of the judge (classifier, LLM-judge, human).  
-  \item \textbf{Refusal Bypass Rate:} a variant of ASR that measures how often safe-mode refusals or safety filters are bypassed — i.e., the model issues a disallowed output rather than refusing the request.  
+  \item \textbf{Attack Success Rate (ASR):} the proportion of adversarial attempts (prompts) that succeed in eliciting harmful or policy-violating outputs. ASR is the most common metric, but it depends heavily on the definition of "harmful" and on the quality of the judge (classifier, LLM-judge, human).  
+  \item \textbf{Refusal Bypass Rate:} a variant of ASR that measures how often safe-mode refusals or safety filters are bypassed — i.e., the model produces a disallowed output rather than refusing the request.  
   \item \textbf{Judge Reliability Metrics:} when using automated judges (regex, classifier, LLM-based), it is crucial to measure false positives / false negatives, calibration error, and inter-annotator agreement (if doing human calibration). Poor judges can substantially distort ASR and other metrics.  
-  \item \textbf{Robustness Metrics:} measure how stable attacks (or defences) are under variations — e.g., paraphrase of prompt, different model temperature, different seeds, context shuffling, or small perturbations.  
+  \item \textbf{Robustness Metrics:} measure the stability of attacks or defences under input variations — such as paraphrasing, prompt reordering, model temperature differences, different seeds (randomness), context shuffling, or small perturbations.  
   \item \textbf{Transferability / Generality:} measure how well attacks discovered on one model or configuration transfer to other models, prompts, or deployments.  
-  \item \textbf{Conversational / Trajectory Metrics:} in multi-turn attack scenarios, metrics may capture success over a dialogue trajectory (e.g., whether harmful content emerges at any point), time-to-failure, or complexity (number of turns needed).  
+  \item \textbf{Conversational / Trajectory Metrics:} in multi-turn attack scenarios, metrics may capture success over a dialogue trajectory (e.g., whether harmful content emerges at any point), time-to-failure, or complexity (number of turns required).  
 \end{itemize}
 
 \subsection{Benchmarks and Standardised Suites}\label{sec:benchmarks}
