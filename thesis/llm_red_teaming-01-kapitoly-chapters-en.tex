@@ -244,15 +244,12 @@ Their design choices, capabilities, and limitations differ significantly, reflec
 
 \subsection{Frameworks for rule-based or template-based red-teaming}\label{sec:pyrit-garak}
 
-Frameworks such as {\em PyRIT} (discussed in the introduction) provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-team sessions.
+Frameworks such as {\em PyRIT} provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-teaming sessions.
+These tools are often lightweight and well-suited for smaller projects or smaller compute budgets, but tend to lack advanced automated search or generation capabilities~\cite{munoz2024pyrit}.
 
-These tools are often lightweight and well-suited for smaller projects or smaller compute budgets, but tend to lack advanced automated search or generation capabilities.
-
-Another such toolkit is {\em garak}, promoted by a major vendor and widely referenced in the industry.
-
-garak provides “probes, generators, and detectors”: probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML + JSON).
-
-This design allows red-teaming across a variety of model backends and output modalities, but — as with simpler frameworks — may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{derczynski2024garak}.
+Another widely used toolkit is {\em garak}.
+garak provides "probes, generators, and detectors": probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML and JSON).
+This design allows red-teaming across a variety of model backends and output modalities, but — as with other rule-based frameworks — it may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{derczynski2024garak}.
 
 \subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
 
@@ -272,7 +269,7 @@ This methodology captures realistic adversarial behaviour and reveals vulnerabil
 
 In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting.
 
-For example, the framework “erase-and-check” provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size.
+For example, the framework "erase-and-check" provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size.
 
 This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions~\cite{kumar2025certifying}.
 
@@ -333,8 +330,8 @@ Basic keyword/regex checks; optional external classifiers. &
 
 \midrule
 \textbf{garak} \cite{derczynski2024garak} &
-Template attacks, perturbation probes, obfuscation, prompt rewriting via “generators”. &
-API models + HuggingFace backends; modular “generators” allow extension. &
+Template attacks, perturbation probes, obfuscation, prompt rewriting via "generators". &
+API models + HuggingFace backends; modular "generators allow extension. &
 \textcolor{gray}{Partial} - supports sequential probing, but not full conversational trajectories. &
 Detectors: regex, classifiers; HTML/JSON reporting. &
 + Mature, widely used, structured probes.  
