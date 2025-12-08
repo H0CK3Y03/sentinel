@@ -62,7 +62,7 @@ By 2025, publicly available and research-grade LLMs often exceed tens to hundred
 
 Because of the scale of their training data and capacity, LLMs encode a wide variety of linguistic patterns, factual knowledge, biases, and behavioural priors.
 
-This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviors that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation~\cite{wei2023jailbroken}.
+This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviours that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation~\cite{wei2023jailbroken}.
 
 \subsection{Alignment and Safety Interventions}\label{sec:alignment}
 
@@ -256,15 +256,11 @@ This design allows red-teaming across a variety of model backends and output mod
 \subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
 
 More advanced frameworks attempt to integrate attack generation, execution, and evaluation into a unified pipeline.
+Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming framework designed to allow multiple attack strategies (template-based, search-based, LLM-driven) within a pluggable architecture~\cite{schoepf2025madmax}.
+Its modular nature makes it flexible and extensible, but in practice integrating it with diverse model runtimes (local LLaMA variants, API-based models, multi-modal models) and scaling up to large-scale red-teaming campaigns remains challenging due to compute demands, backend model compatibility, and evaluation infrastructure requirements.
 
-Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming framework designed to allow multiple attack strategies (template-based, search-based, LLM-driven) in a pluggable architecture~\cite{schoepf2025madmax}.
-
-Its modular nature makes it flexible and extensible, but in practice integrating it with diverse model runtimes (local LLaMA variants, API-based models, multi-modal models) and scaling up to large-scale red-teaming remains challenging due to compute cost, model compatibility, and evaluation infrastructure requirements.
-
-The recent work on fully automated, trajectory-based red-teaming — recasting red-teaming as a sequential decision-making process over entire dialogues — pushes the frontier further.
-
+Beyond modular frameworks, recent work explores fully automated, trajectory-based red-teaming that recasts red-teaming as a sequential decision-making process over entire dialogues.
 For example, the automated red-teaming approach by Belaire et al. (2025) formalises multi-turn red-teaming as a Markov Decision Process (MDP), enabling attack policies to optimise over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
-
 This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
 \subsection{Defence-oriented and Certified Safety Approaches}\label{sec:defences}
