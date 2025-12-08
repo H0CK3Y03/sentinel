@@ -266,14 +266,11 @@ This methodology captures realistic adversarial behaviour and reveals vulnerabil
 \subsection{Defence-oriented and Certified Safety Approaches}\label{sec:defences}
 
 In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting.
-
-For example, the framework "erase-and-check" provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under bounded adversarial size.
-
+For example, the framework "erase-and-check" provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under a bounded adversarial size.
 This method recomputes safety classification after systematically removing tokens from the prompt and offers provable safety guarantees under certain assumptions~\cite{kumar2025certifying}.
-
 While promising, such approaches are often computationally expensive and may impair user experience or model usability.
 
-Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks like {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour — which complicates defence strategies, necessitating robust input sanitisation, runtime monitoring, and possibly dynamic prompt sanitisation or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
+Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks such as {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour, complicating defence strategies and necessitating robust input sanitisation, runtime monitoring, or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
 
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
