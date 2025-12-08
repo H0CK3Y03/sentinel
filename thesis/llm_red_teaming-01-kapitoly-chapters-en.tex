@@ -272,6 +272,94 @@ While promising, such approaches are often computationally expensive and may imp
 
 Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks such as {\em TrojLLM}) indicates that even seemingly benign prompts may embed stealthy triggers that cause harmful behaviour, complicating defence strategies and necessitating robust input sanitisation, runtime monitoring, or adversarial-resistant prompt encoding~\cite{xue2023trojllm}.
 
+To summarise the capabilities, design choices, and limitations of the reviewed frameworks, tables~\ref{tab:rulebased} and~\ref{tab:automated} provide a comparison of rule-based, prompt-injection, automated, and certified-safety tools.
+
+% ----- Table: Rule-based & Injection frameworks -----
+\begin{table}[H]
+\centering
+\scriptsize
+\setlength{\extrarowheight}{2pt}
+\begin{tabularx}{\linewidth}{l 
+  >{\raggedright\arraybackslash}p{2.8cm} 
+  >{\raggedright\arraybackslash}p{2.6cm} 
+  >{\centering\arraybackslash}p{1.2cm} 
+  >{\raggedright\arraybackslash}p{2.8cm}}
+\toprule
+\textbf{Framework} & \textbf{Attack types} & \textbf{Backends} & \textbf{Multi-turn} & \textbf{Key notes} \\
+\midrule
+\textbf{PyRIT} &
+Rule/template prompts, basic injection. &
+API-based (OpenAI, Anthropic); limited local support. &
+Partial &
+Lightweight; regex/classifier judges; limited automation~\cite{munoz2024pyrit}. \\
+\addlinespace[2pt]
+
+\textbf{garak}~\cite{derczynski2024garak} &
+Template attacks, probes, obfuscation. &
+API + HuggingFace; extensible generators. &
+Partial &
+Regex/classifier detectors; widely used; limited multi-turn. \\
+\addlinespace[2pt]
+
+\textbf{TAP}~\cite{mehrotra2024tap} &
+Search-based jailbreaks. &
+Black-box APIs; local wrappers. &
+No &
+Query-efficient; single-shot focus. \\
+\addlinespace[2pt]
+
+\textbf{Prompt-injection frameworks} \\ (e.g., HouYi)~\cite{liu2024promptinjection} &
+Direct/indirect injection; document-based attacks. &
+LLM-integrated applications. &
+Yes &
+Realistic workflows; task-specific checks. \\
+\bottomrule
+\end{tabularx}
+\caption{Comparison of rule-based and prompt-injection frameworks.}
+\label{tab:rulebased}
+\end{table}
+
+% ----- Table: Automated & Certified frameworks -----
+\begin{table}[H]
+\centering
+\scriptsize
+\setlength{\extrarowheight}{2pt}
+\begin{tabularx}{\linewidth}{l 
+  >{\raggedright\arraybackslash}p{2.8cm} 
+  >{\raggedright\arraybackslash}p{2.6cm} 
+  >{\centering\arraybackslash}p{1.2cm} 
+  >{\raggedright\arraybackslash}p{2.8cm}}
+\toprule
+\textbf{Framework} & \textbf{Attack types} & \textbf{Backends} & \textbf{Multi-turn} & \textbf{Key notes} \\
+\midrule
+
+\textbf{MAD-MAX}~\cite{schoepf2025madmax} &
+Template/LLM/search attacks. &
+API + local via plugins. &
+Yes &
+Modular; multi-turn; high compute cost. \\
+\addlinespace[2pt]
+
+\textbf{Automatic LLM Red-teaming} \\ (Belaire et al.)~\cite{belaire2025automatic} &
+LLM-as-attacker; RL optimisation; trajectory attacks. &
+API/local (model-in-loop). &
+Yes &
+Trajectory MDP; powerful but expensive. \\
+\addlinespace[2pt]
+
+\textbf{Erase-and-Check}~\cite{kumar2025certifying} &
+Token deletions, suffix detection (defence). &
+Model-agnostic inputs. &
+N/A &
+Provable guarantees; computationally heavy. \\
+\bottomrule
+\end{tabularx}
+\caption{Comparison of automated and certified safety frameworks.}
+\label{tab:automated}
+\end{table}
+
+The contrasts highlighted in these tables reveal several systematic limitations across current tooling, which motivate the research gaps discussed in the following section.
+
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
 The literature and tools surveyed above show that, although the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics, substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models.
@@ -299,87 +387,6 @@ We also surveyed existing open-source tools and frameworks, highlighting trade-o
 Finally, we identified core gaps in tooling, evaluation, and reproducibility — gaps that motivate the design and implementation of the red-teaming toolkit proposed in the next chapter.
 
 With this foundation in place, the next chapter presents a detailed survey of existing open-source red-teaming toolkits, followed by a requirements analysis and the design of the proposed modular, extensible toolkit.
-
-\begin{table}[htbp]
-\centering
-\footnotesize
-\begin{tabularx}{\linewidth}{l X X X X X}
-\toprule
-\textbf{Framework} &
-\textbf{Attack Types Supported} &
-\textbf{Model Backend Support} &
-\textbf{Multi-turn Capability} &
-\textbf{Evaluation / Judge Type} &
-\textbf{Key Strengths / Limitations} \\
-\midrule
-
-\textbf{PyRIT} \cite{munoz2024pyrit} &
-Rule-based prompts, template attacks, basic prompt injection, simple adversarial transforms. &
-Supports API-based models (OpenAI, Anthropic), simple REST adapters; limited support for local LLMs. &
-\textcolor{gray}{Partial} - supports manual conversational sessions but lacks automated multi-turn logic. &
-Basic keyword/regex checks; optional external classifiers. &
-+ Lightweight, easy to use.  
--- Limited automation, no search-based generators, weak judge reliability. \\
-
-\midrule
-\textbf{garak} \cite{derczynski2024garak} &
-Template attacks, perturbation probes, obfuscation, prompt rewriting via "generators". &
-API models + HuggingFace backends; modular "generators allow extension. &
-\textcolor{gray}{Partial} - supports sequential probing, but not full conversational trajectories. &
-Detectors: regex, classifiers; HTML/JSON reporting. &
-+ Mature, widely used, structured probes.  
--- Limited advanced automated attack generation; multi-turn support minimal. \\
-
-\midrule
-\textbf{MAD-MAX} \cite{schoepf2025madmax} &
-Modular system: rule-based, template-based, LLM-generated attacks, search-based attacks. &
-Designed for flexible backends; supports API and local models; plugin-based adapters. &
-\textbf{Yes} - modular conversation orchestrator; supports multi-turn flows. &
-LLM-as-a-judge, rule-based detectors, modular evaluation pipeline. &
-+ Highly modular, extensible.  
--- High compute requirements; complex to deploy; best suited for labs. \\
-
-\midrule
-\textbf{Automatic LLM Red-teaming} \\ (Belaire et al. 2025) \cite{belaire2025automatic} &
-LLM-as-attacker, RL/HF-based optimisation, trajectory-level red-teaming, multi-turn adversarial search. &
-API and local models; depends on model-in-the-loop capabilities. &
-\textbf{Yes} - multi-turn attacks optimised using RL / MDP formulation. &
-LLM judges (safety classifiers, preference models). &
-+ State-of-the-art automated discovery; finds subtle failures.  
--- Expensive; requires careful calibration; not lightweight. \\
-
-\midrule
-\textbf{TAP (Tree-of-Attacks)} \cite{mehrotra2024tap} &
-Search-based automated jailbreaks, adversarial refinement tree, black-box optimisation. &
-Black-box API models (OpenAI, Anthropic, etc.). Local models possible with wrappers. &
-\textcolor{gray}{No} - primarily single-turn; generates one-shot optimised attacks. &
-Simple heuristic judges; optional LLM-as-a-judge extension. &
-+ Extremely query-efficient; discovers novel jailbreaks.  
--- Limited to single-turn; no conversational capabilities; not a full toolkit. \\
-
-\midrule
-\textbf{Prompt Injection Frameworks} \\ (e.g., HouYi) \cite{liu2024promptinjection} &
-Prompt injection, indirect injection, document-based attacks, automated crawling and exploitation. &
-Targets LLM-integrated apps (not just raw models). &
-\textbf{Yes} - multi-step workflows across web/app interactions. &
-Task-specific checks; manual validation often required. &
-+ Highly realistic; identifies real-world vulnerabilities.  
--- Not general red-teaming against LLMs alone; focus on apps. \\
-
-\midrule
-\textbf{Certified Safety Tools} \\ (Erase-and-Check) \cite{kumar2025certifying} &
-Defence: adversarial prompt removal, token deletion checks, suffix attack detection. &
-Model-agnostic; operates at prompt-processing stage. &
-N/A (defence, not attack). &
-Binary safety guarantee after checking. &
-+ Formal safety guarantees for bounded adversarial prompts.  
--- Very slow; not suitable for large-scale red-teaming. \\
-
-\bottomrule
-\end{tabularx}
-\caption{Comparison of major LLM red-teaming frameworks, covering supported attack types, backend compatibility, multi-turn capabilities, evaluation methods, and key strengths and limitations.}
-\label{tab:framework-comparison}
-\end{table}
 
 \chapter{Design}\label{ch:design}
 
