@@ -6,4 +6,3 @@ https://artificialanalysis.ai/models?intelligence=coding-index&intelligence-cate
 https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/strengthening-our-frontier-safety-framework/frontier-safety-framework_3.pdf
 
 https://github.com/NVIDIA/garak
-https://owasp.org/www-project-top-10-for-large-language-model-applications/

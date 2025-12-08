@@ -274,20 +274,18 @@ Moreover, the existence of Trojan prompt attacks (as demonstrated by frameworks 
 
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
-The literature and tools surveyed above show that — while the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics — substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models.
-
-In particular:
+The literature and tools surveyed above show that, although the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics, substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models.
 
 \begin{itemize}
-  \item \textbf{Lack of lightweight, modular, and extensible tooling:} existing frameworks either focus on small scale (template-based, rule-based, lightweight) or on large-scale automated red-teaming — but rarely both. There is a lack of toolkits that are accessible to small research teams or individual developers yet support modern LLM backends, extensible attack/evaluator plugins, and reproducible logging/benchmarks.  
-  \item \textbf{Judge reliability and evaluation consistency:} many red-teaming efforts rely on heuristic or automated judges (regex filters, simple classifiers), which often lack calibration, robustness, or reproducibility. As a result, reported Attack Success Rates (ASR) may misrepresent true safety risk. While certified-safety methods (e.g., erase-and-check) provide stronger guarantees, they are computationally expensive and may be impractical for everyday red-teaming.  
+  \item \textbf{Lack of lightweight, modular, and extensible tooling:} existing frameworks typically focus either on lightweight, rule-/template-based probing or on large-scale automated red-teaming, but rarely combine both. There is a need for toolkits that are accessible to small research teams or individual developers yet support modern LLM backends, extensible attack and evaluator plugins, and reproducible logging and benchmarking.  
+  \newpage{}
+  \item \textbf{Judge reliability and evaluation consistency:} many red-teaming efforts rely on heuristic or automated judges (regex filters, simple classifiers) that often lack calibration, robustness, or reproducibility. As a result, reported Attack Success Rates (ASR) may misrepresent true safety risk. Certified-safety methods (e.g., erase-and-check) provide stronger guarantees, but are computationally expensive and may be impractical for routine use.  
   \item \textbf{Underrepresentation of multi-turn and real-world attack vectors:} most prior work and benchmarks focus on single-shot prompts; multi-turn conversational attacks — which more accurately model real-world adversaries — remain under-evaluated. Recently proposed trajectory-based red-teaming frameworks help, but are not yet part of standard open-source toolkits.  
-  \item \textbf{Difficulty integrating across diverse model backends and deployment contexts:} LLMs are deployed in variable settings (local open-source models, API-based proprietary models, multi-modal agents, applications with external tools). Existing tools often lack abstractions or adapters covering this diversity.  
-  \item \textbf{Limited transparency and reproducibility of prompt libraries and experiment artefacts:} many studies do not release their full prompt sets, seeds, or evaluation logs, making independent replication or longitudinal safety regression testing difficult.  
+  \item \textbf{Difficulty integrating across diverse model backends and deployment contexts:} LLMs are deployed in varied settings (local open-source models, API-based proprietary models, multi-modal agents, applications with external tools), yet existing tools often lack abstractions or adapters covering this diversity.  
+  \item \textbf{Limited transparency and reproducibility of prompt libraries and experiment artefacts:} many studies do not release their full prompt sets, random seeds, or evaluation logs, making independent replication or longitudinal safety regression testing difficult.  
 \end{itemize}
 
-These gaps motivate the design goals for the toolkit developed in this thesis: namely, modularity and pluggability (attack generators, model adapters, evaluators), reproducible experiment manifests and logging, hybrid judging (to balance cost and fidelity), and explicit support for multi-turn conversational testing.
-
+These gaps motivate the design goals for the toolkit developed in this thesis: namely, modularity and pluggability (attack generators, model adapters, evaluators), reproducible experiment manifests and logging, hybrid judging (balancing cost and fidelity), and explicit support for multi-turn conversational testing.
 By addressing these gaps, the proposed toolkit aims to lower the barrier to entry for systematic LLM red-teaming for researchers, students, and small teams.
 
 \section{Conclusion of the Chapter}\label{sec:chapter-conclusion}
