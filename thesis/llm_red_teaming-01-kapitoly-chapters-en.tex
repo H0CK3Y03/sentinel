@@ -18,18 +18,18 @@ Real-world incidents such as ChatGPT being tricked into providing bomb-making in
 In response, red-teaming, a cybersecurity technique involving simulated attacks to expose vulnerabilities, has been adopted by leading AI organisations (OpenAI, Anthropic, Google DeepMind) as a core component of LLM safety evaluation~\cite{openai2023redteaming}.
 
 Beyond model-level behaviour, LLMs are embedded in applications and services where integration and deployment issues create additional, system-level risks.
-Industry guidance such as the OWASP Top 10 for Large Language Model Applications highlights a set of practical deployment vulnerabilities — for example prompt injection, insecure output handling, insecure plugin design, and excessive agency — that are distinct from but complementary to model-centred harms~\cite{owasp2025llm, owasp2025top}.
+Industry guidance such as the OWASP Top 10 for Large Language Model Applications highlights vulnerabilities including prompt injection, insecure output handling, insecure plugin design, and excessive agency~\cite{owasp2025llm, owasp2025top}.
 
 With the adoption of the EU AI Act in 2024, systematic risk assessment including red-teaming will become a legal requirement for high-risk AI systems deployed in the European Union from 2026 onward~\cite{eu2024aiact}.
 Consequently, efficient, reproducible, and extensible red-teaming tools are no longer a luxury but an essential part of responsible AI development.
 
-Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems, query cost and computational requirements that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
+Despite significant progress, most existing open-source red-teaming frameworks suffer from limited modularity, poor support for modern systems and computational requirements that hinder adoption by smaller research teams and individual developers~\cite{purpura2025building, schoepf2025madmax, belaire2025automatic, munoz2024pyrit}.
 This creates a clear need for a new, lightweight, developer-friendly red-teaming toolkit that lowers the barrier to LLM systematic safety testing.
 
 The main goal of this bachelor's thesis is therefore the design, implementation, and evaluation of a modular open-source red-teaming toolkit for large language models that addresses the identified shortcomings of current solutions.
 
 The remainder of this thesis is structured as follows:
-Chapter~\ref{ch:background-and-safety} provides the necessary background on large language models, alignment techniques, and a taxonomy of safety risks.
+Chapter~\ref{ch:background-and-safety} provides the necessary background on large language models.
 Chapter~\ref{ch:red-teaming} surveys existing red-teaming methodologies, attack taxonomies, evaluation metrics, and open-source tools.
 Chapter~\ref{ch:design} presents the proposed system architecture.
 Chapter~\ref{ch:implementation} details the implementation of the red-teaming toolkit.
@@ -169,13 +169,22 @@ Organising these attacks into a taxonomy is useful for understanding their mecha
 
 This section surveys the primary attack classes considered in contemporary LLM red-teaming: single-turn jailbreaks, prompt-injection attacks, multi-turn conversational manipulation, universal or transferable triggers, and trojan or backdoor-style vulnerabilities~\cite{schoepf2025madmax}.
 
+\newpage{}
+
 \subsection{Single-turn Jailbreaking}\label{sec:single-turn}
 
 Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
 
 Common techniques include role-play (``Pretend you are …''), direct overrides (``Ignore previous instructions …''), encoding or cipher-based obfuscation to hide disallowed instructions, and other prompt-engineering strategies~\cite{perez2022ignore}.
 
-Despite alignment training, many models remain vulnerable to such simple attacks~\cite{wei2023jailbroken, zou2023universal}.
+Despite alignment training, many models remain vulnerable to these attacks~\cite{wei2023jailbroken, zou2023universal}.
+
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=0.7\linewidth,height=1.5in]{obrazky-figures/single-turn.pdf}\\[1pt]
+  \caption{Example of a single-turn jailbreak prompt that elicits disallowed content from an LLM in one prompt. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
+  \label{single-turn-figure}
+\end{figure}
 
 \subsection{Prompt Injection}\label{sec:prompt-injection}
 
@@ -186,6 +195,13 @@ Other work has shown that even automated, universal prompt injection attacks rem
 
 Prompt injection remains among the most significant security threats for LLM-based systems, as acknowledged by security guidance frameworks and cheat sheets (e.g., from OWASP) tailored to LLM applications~\cite{owasp2025llm, owasp2025top}.
 
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=\linewidth,height=1.2in]{obrazky-figures/prompt-injection.pdf}\\[1pt]
+  \caption{Example of an indirect prompt injection attack: a user issues a benign query, the LLM retrieves external content containing embedded instructions, and these instructions override system or developer prompts, leading to compromised output. Adapted from Greshake et al.~\cite{greshake2023not}.}
+  \label{prompt-injection-figure}
+\end{figure}
+
 \subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
 
 Rather than achieve a jailbreak in a single prompt, adversaries may perform a sequence of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model's inability to consistently refuse undesirable requests~\cite{wei2023jailbroken}.
@@ -195,13 +211,40 @@ This vector is increasingly recognised as one of the most dangerous and under-ev
 
 Recent research recasts automated red-teaming as a multi-turn optimisation problem — better capturing long-horizon adversarial strategies — and shows that RL-based red-teaming significantly outperforms single-turn methods in eliciting harmful content~\cite{belaire2025automatic}.
 
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=0.7\linewidth,height=5.5in]{obrazky-figures/multi-turn.pdf}\\[1pt]
+  \caption{Illustration of a multi-turn jailbreak attack, in which an attacker iteratively refines prompts based on previous model responses to progressively elicit disallowed behavior. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
+  \label{multi-turn-figure}
+\end{figure}
+
 \subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{sec:universal}
 
 Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models~\cite{zou2023universal}.
 This makes the attack highly reusable and dangerous.
 
-One example is the black-box Trojan prompt attack framework {\em TrojLLM}, which demonstrates that universal stealthy triggers can be discovered for widely-used LLM architectures and APIs, enabling malicious manipulation across diverse prompt inputs~\cite{xue2023trojllm}.
-Such attacks bypass input sanitisation heuristics because the trigger is embedded in seemingly benign inputs.
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=\linewidth,height=4in]{obrazky-figures/universal-triggers.pdf}\\[1pt]
+  \caption{Illustration of a universal trigger attack, where a fixed trigger sequence appended to user inputs induces undesired behavior in an unmodified language model across different prompts and, in some cases, across different models.}
+  \label{universal-triggers-figure}
+\end{figure}
+
+A related but distinct class of attacks are Trojan-style (backdoor) attacks, where the model itself is modified during training or fine-tuning to respond maliciously to a specific trigger.
+An example is the black-box Trojan prompt attack framework \emph{TrojLLM}, which demonstrates that stealthy trigger patterns can be embedded into widely used LLM architectures and APIs, enabling malicious behavior when the trigger is present~\cite{xue2023trojllm}.
+Because the trigger is designed to appear benign, such attacks may bypass input sanitization and heuristic defenses.
+
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=0.6\linewidth,height=3in]{obrazky-figures/trojan-style.pdf}\\[1pt]
+  \caption{
+    Illustration of a Trojan-style (backdoor) attack on a large language model. The modified model behaves normally for benign inputs but produces malicious or policy-violating outputs when a specific trigger pattern is present.
+    Unlike universal trigger attacks, the vulnerability is embedded in the model during training or fine-tuning rather than in the input prompt.
+    }
+  \label{trojan-style-figure}
+\end{figure}
+
+\newpage{}
 
 \subsection{Prompt-based Evasion and Adversarial Perturbations}\label{sec:perturbation}
 
@@ -212,6 +255,15 @@ Certified-safety approaches have been proposed to mitigate this class: for examp
 While promising, these methods are computationally expensive and may degrade user experience or model utility.
 
 Because these perturbation-based attacks operate at the token level and can be obfuscated, they represent a difficult-to-detect threat, especially when combined with other attack modalities (multi-turn, universal triggers, trojans).
+
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=0.5\linewidth,height=2.6in]{obrazky-figures/evasion-perturbation.pdf}\\[1pt]
+  \caption{Illustration of a prompt-based evasion attack, where an attacker modifies a disallowed request using linguistic obfuscation or adversarial perturbations to bypass safety mechanisms.}
+  \label{evasion-perturbation-figure}
+\end{figure}
+
+\newpage{}
 
 \section{Evaluation Metrics and Benchmarks}\label{sec:evaluation}
 
@@ -363,13 +415,14 @@ Provable guarantees; computationally heavy. \\
 
 The contrasts highlighted in these tables reveal several systematic limitations across current tooling, which motivate the research gaps discussed in the following section.
 
+\newpage{}
+
 \section{Synthesis and Research Gap}\label{sec:gaps}
 
 The literature and tools surveyed above show that, although the research community has developed a rich taxonomy of harms, attack strategies, and evaluation metrics, substantial gaps remain that limit the effectiveness, accessibility, and reliability of red-teaming for large language models.
 
 \begin{itemize}
   \item \textbf{Lack of lightweight, modular, and extensible tooling:} existing frameworks typically focus either on lightweight, rule-/template-based probing or on large-scale automated red-teaming, but rarely combine both. There is a need for toolkits that are accessible to small research teams or individual developers yet support modern LLM backends, extensible attack and evaluator plugins, and reproducible logging and benchmarking.  
-  \newpage{}
   \item \textbf{Judge reliability and evaluation consistency:} many red-teaming efforts rely on heuristic or automated judges (regex filters, simple classifiers) that often lack calibration, robustness, or reproducibility. As a result, reported Attack Success Rates (ASR) may misrepresent true safety risk. Certified-safety methods (e.g., erase-and-check) provide stronger guarantees, but are computationally expensive and may be impractical for routine use.  
   \item \textbf{Underrepresentation of multi-turn and real-world attack vectors:} most prior work and benchmarks focus on single-shot prompts; multi-turn conversational attacks — which more accurately model real-world adversaries — remain under-evaluated. Recently proposed trajectory-based red-teaming frameworks help, but are not yet part of standard open-source toolkits.  
   \item \textbf{Difficulty integrating across diverse model backends and deployment contexts:} LLMs are deployed in varied settings (local open-source models, API-based proprietary models, multi-modal agents, applications with external tools), yet existing tools often lack abstractions or adapters covering this diversity.  
