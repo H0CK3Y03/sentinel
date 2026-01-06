@@ -181,7 +181,7 @@ Despite alignment training, many models remain vulnerable to these attacks~\cite
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.7\linewidth,height=1.5in]{obrazky-figures/single-turn.pdf}\\[1pt]
+  \includegraphics[width=0.7\linewidth,height=4cm]{obrazky-figures/single-turn.pdf}\\[1pt]
   \caption{Example of a single-turn jailbreak prompt that elicits disallowed content from an LLM in one prompt. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
   \label{single-turn-figure}
 \end{figure}
@@ -197,7 +197,7 @@ Prompt injection remains among the most significant security threats for LLM-bas
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=\linewidth,height=1.2in]{obrazky-figures/prompt-injection.pdf}\\[1pt]
+  \includegraphics[width=\linewidth,height=3cm]{obrazky-figures/prompt-injection.pdf}\\[1pt]
   \caption{Example of an indirect prompt injection attack: a user issues a benign query, the LLM retrieves external content containing embedded instructions, and these instructions override system or developer prompts, leading to compromised output. Adapted from Greshake et al.~\cite{greshake2023not}.}
   \label{prompt-injection-figure}
 \end{figure}
@@ -213,7 +213,7 @@ Recent research recasts automated red-teaming as a multi-turn optimisation probl
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.7\linewidth,height=5.5in]{obrazky-figures/multi-turn.pdf}\\[1pt]
+  \includegraphics[width=0.7\linewidth,height=15cm]{obrazky-figures/multi-turn.pdf}\\[1pt]
   \caption{Illustration of a multi-turn jailbreak attack, in which an attacker iteratively refines prompts based on previous model responses to progressively elicit disallowed behavior. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
   \label{multi-turn-figure}
 \end{figure}
@@ -225,7 +225,7 @@ This makes the attack highly reusable and dangerous.
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=\linewidth,height=4in]{obrazky-figures/universal-triggers.pdf}\\[1pt]
+  \includegraphics[width=\linewidth,height=10cm]{obrazky-figures/universal-triggers.pdf}\\[1pt]
   \caption{Illustration of a universal trigger attack, where a fixed trigger sequence appended to user inputs induces undesired behavior in an unmodified language model across different prompts and, in some cases, across different models.}
   \label{universal-triggers-figure}
 \end{figure}
@@ -236,7 +236,7 @@ Because the trigger is designed to appear benign, such attacks may bypass input 
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.6\linewidth,height=3in]{obrazky-figures/trojan-style.pdf}\\[1pt]
+  \includegraphics[width=0.5\linewidth,height=7cm]{obrazky-figures/trojan-style.pdf}\\[1pt]
   \caption{
     Illustration of a Trojan-style (backdoor) attack on a large language model. The modified model behaves normally for benign inputs but produces malicious or policy-violating outputs when a specific trigger pattern is present.
     Unlike universal trigger attacks, the vulnerability is embedded in the model during training or fine-tuning rather than in the input prompt.
@@ -258,7 +258,7 @@ Because these perturbation-based attacks operate at the token level and can be o
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.5\linewidth,height=2.6in]{obrazky-figures/evasion-perturbation.pdf}\\[1pt]
+  \includegraphics[width=0.5\linewidth,height=6.7cm]{obrazky-figures/evasion-perturbation.pdf}\\[1pt]
   \caption{Illustration of a prompt-based evasion attack, where an attacker modifies a disallowed request using linguistic obfuscation or adversarial perturbations to bypass safety mechanisms.}
   \label{evasion-perturbation-figure}
 \end{figure}
@@ -433,6 +433,13 @@ These gaps motivate the design goals for the toolkit developed in this thesis: n
 By addressing these gaps, the proposed toolkit aims to lower the barrier to entry for systematic LLM red-teaming for researchers, students, and small teams.
 
 \chapter{Design}\label{ch:design}
+
+\begin{figure}[h]\centering
+  \centering
+  \includegraphics[width=\linewidth,height=10cm]{obrazky-figures/design.pdf}\\[1pt]
+  \caption{High-level architecture of the proposed red-teaming toolkit. The system is organised around a central orchestrator that coordinates attack generators, model adapters, and a hybrid judging pipeline. Experiments are defined declaratively via manifests and logged in a reproducible JSONL format, with optional indexing and reporting via a lightweight UI.}
+  \label{evasion-perturbation-figure}
+\end{figure}
 
 \section{Requirements and Goals}
 \begin{itemize}
