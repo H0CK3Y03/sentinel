@@ -100,8 +100,8 @@
             <mxPoint x="240" y="190" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="qiuyAcNoXSRn3QbRwZWB-143" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Config" vertex="1">
-          <mxGeometry height="30" width="60" x="235" y="170" as="geometry" />
+        <mxCell id="qiuyAcNoXSRn3QbRwZWB-143" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Config/requests" vertex="1">
+          <mxGeometry height="30" width="110" x="210" y="170" as="geometry" />
         </mxCell>
         <mxCell id="qiuyAcNoXSRn3QbRwZWB-144" edge="1" parent="1" source="qiuyAcNoXSRn3QbRwZWB-109" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="qiuyAcNoXSRn3QbRwZWB-100" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
