@@ -178,6 +178,18 @@
         <mxCell id="qiuyAcNoXSRn3QbRwZWB-164" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Stream results" vertex="1">
           <mxGeometry height="30" width="81" x="609" y="335" as="geometry" />
         </mxCell>
+        <mxCell id="qiuyAcNoXSRn3QbRwZWB-165" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" target="qiuyAcNoXSRn3QbRwZWB-99" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="558" y="188" />
+            </Array>
+            <mxPoint x="558" y="160" as="sourcePoint" />
+            <mxPoint x="558" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="qiuyAcNoXSRn3QbRwZWB-166" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Evaluation" vertex="1">
+          <mxGeometry height="30" width="80" x="470" y="159" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
