@@ -181,7 +181,7 @@ Despite alignment training, many models remain vulnerable to these attacks~\cite
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.7\linewidth,height=4cm]{obrazky-figures/single-turn.pdf}\\[1pt]
+  \includegraphics[width=0.7\linewidth,height=3cm, keepaspectratio]{obrazky-figures/single-turn.pdf}\\[1pt]
   \caption{Example of a single-turn jailbreak prompt that elicits disallowed content from an LLM in one prompt. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
   \label{single-turn-figure}
 \end{figure}
@@ -197,7 +197,7 @@ Prompt injection remains among the most significant security threats for LLM-bas
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=\linewidth,height=3cm]{obrazky-figures/prompt-injection.pdf}\\[1pt]
+  \includegraphics[width=\linewidth,height=3cm, keepaspectratio]{obrazky-figures/prompt-injection.pdf}\\[1pt]
   \caption{Example of an indirect prompt injection attack: a user issues a benign query, the LLM retrieves external content containing embedded instructions, and these instructions override system or developer prompts, leading to compromised output. Adapted from Greshake et al.~\cite{greshake2023not}.}
   \label{prompt-injection-figure}
 \end{figure}
@@ -213,7 +213,7 @@ Recent research recasts automated red-teaming as a multi-turn optimisation probl
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.7\linewidth,height=14cm]{obrazky-figures/multi-turn.pdf}\\[1pt]
+  \includegraphics[width=0.7\linewidth,height=10cm, keepaspectratio]{obrazky-figures/multi-turn.pdf}\\[1pt]
   \caption{Illustration of a multi-turn jailbreak attack, in which an attacker iteratively refines prompts based on previous model responses to progressively elicit disallowed behaviour. Adapted from Zhao and Zhang~\cite{zhao2025siren}.}
   \label{multi-turn-figure}
 \end{figure}
@@ -223,22 +223,26 @@ Recent research recasts automated red-teaming as a multi-turn optimisation probl
 Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models~\cite{zou2023universal}.
 This makes the attack highly reusable and dangerous.
 
+\newpage{}
+
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=\linewidth,height=10cm]{obrazky-figures/universal-triggers.pdf}\\[1pt]
+  \includegraphics[width=0.95\linewidth,height=10cm, keepaspectratio]{obrazky-figures/universal-triggers.pdf}\\[1pt]
   \caption{Illustration of a universal trigger attack, where a fixed trigger sequence appended to user inputs induces undesired behaviour in an unmodified language model across different prompts and, in some cases, across different models.}
   \label{universal-triggers-figure}
 \end{figure}
 
-A related but distinct class of attacks are Trojan-style (backdoor) attacks, where the model itself is modified during training or fine-tuning to respond maliciously to a specific trigger.
-An example is the black-box Trojan prompt attack framework \emph{TrojLLM}, which demonstrates that stealthy trigger patterns can be embedded into widely used LLM architectures and APIs, enabling malicious behaviour when the trigger is present~\cite{xue2023trojllm}.
-Because the trigger is designed to appear benign, such attacks may bypass input sanitisation and heuristic defences.
+A related class of attacks are Trojan-style (backdoor) attacks, where the model itself is modified during training or fine-tuning to respond maliciously to a specific trigger.
+An example is the black-box Trojan prompt attack framework \emph{TrojLLM}, which demonstrates that trigger patterns can be embedded into widely used LLM architectures and APIs, enabling malicious behaviour when the trigger is present~\cite{xue2023trojllm}.
+
+Because the trigger is designed to appear benign, such attacks may bypass LLM defences.
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.5\linewidth,height=7cm]{obrazky-figures/trojan-style.pdf}\\[1pt]
+  \includegraphics[width=0.5\linewidth,height=5.5cm, keepaspectratio]{obrazky-figures/trojan-style.pdf}\\[1pt]
   \caption{
-    Illustration of a Trojan-style (backdoor) attack on a large language model. The modified model behaves normally for benign inputs but produces malicious or policy-violating outputs when a specific trigger pattern is present.
+    Illustration of a Trojan-style (backdoor) attack.
+    The modified model behaves normally for inputs but produces malicious or policy-violating outputs when a specific trigger pattern is present.
     Unlike universal trigger attacks, the vulnerability is embedded in the model during training or fine-tuning rather than in the input prompt.
     }
   \label{trojan-style-figure}
@@ -258,17 +262,17 @@ Because these perturbation-based attacks operate at the token level and can be o
 
 \begin{figure}[h]\centering
   \centering
-  \includegraphics[width=0.5\linewidth,height=6.7cm]{obrazky-figures/evasion-perturbation.pdf}\\[1pt]
+  \includegraphics[width=0.5\linewidth,height=7cm, keepaspectratio]{obrazky-figures/evasion-perturbation.pdf}\\[1pt]
   \caption{Illustration of a prompt-based evasion attack, where an attacker modifies a disallowed request using linguistic obfuscation or adversarial perturbations to bypass safety mechanisms.}
   \label{evasion-perturbation-figure}
 \end{figure}
-
-\newpage{}
 
 \section{Evaluation Metrics and Benchmarks}\label{sec:evaluation}
 
 Robust and systematic evaluation is critical for red-teaming, as it enables meaningful comparison of models, attack strategies, and defences.
 The following metrics and benchmarks are widely adopted in contemporary LLM safety research and practice~\cite{purpura2025building}.
+
+\newpage{}
 
 \subsection{Quantitative Metrics}\label{sec:metrics-quant}
 
@@ -297,6 +301,8 @@ In addition, while single-turn attack benchmarks are relatively common, multi-tu
 A variety of open-source frameworks and research prototypes have been developed to support systematic red-teaming of LLMs.
 Their design choices, capabilities, and limitations differ significantly, reflecting diverse goals and use cases.
 
+\newpage{}
+
 \subsection{Frameworks for rule-based or template-based red-teaming}\label{sec:pyrit-garak}
 
 Frameworks such as {\em PyRIT} provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-teaming sessions.
@@ -305,8 +311,6 @@ These tools are often lightweight and well-suited for smaller projects or smalle
 Another widely used toolkit is {\em garak}.
 garak provides "probes, generators, and detectors": probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML and JSON).
 This design allows red-teaming across a variety of model backends and output modalities, but — as with other rule-based frameworks — it may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{derczynski2024garak}.
-
-\newpage{}
 
 \subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
 
@@ -493,15 +497,16 @@ The following paragraphs describe components and the main data/control flows.
 
 \subsection{Components (narrative)}
 
-\begin{itemize}
-  \item \textbf{Experiment manifest:} a declarative, versioned specification describing the experiment (target model(s), attack generator selection, judge configuration, seeds, limits).
-  \item \textbf{Orchestrator:} the central coordinator that loads manifests, schedules attack generation, sends prompts to model adapters, invokes judges, and records structured logs.
-  \item \textbf{Attack generators:} plugins that produce candidate prompts (manual lists, templates, or automated generators such as TAP-style searchers or LLM-as-attacker modules). Generators implement a small interface (request/produce).
-  \item \textbf{Model adapters:} adapters abstracting backend-specific API calls and rate-limits; they translate orchestrator requests into backend-specific invocations and return raw responses.
-  \item \textbf{Judge adapters:} evaluation modules that classify outputs (heuristic detectors, ML classifiers, or LLM-based judges). Judges write structured verdicts to the orchestrator and log store.
-  \item \textbf{Log store (JSONL):} append-only records capturing prompt, model response, verdict(s), and experiment metadata. Serves as single source of truth for reporting and reproducibility.
-  \item \textbf{Reporting UI:} a read-only interface that indexes or streams JSONL logs to present aggregated metrics, failed cases, and raw dialogues.
-\end{itemize}
+The system is organised around a small set of well-defined components, each with a clearly separated responsibility.
+Experiments are specified using declarative manifests, which describe the target models, attack generators, judging configuration, and execution parameters.
+These manifests are consumed by the orchestrator, which serves as the central coordination component of the toolkit.
+
+During execution, the orchestrator invokes attack generators to obtain candidate adversarial prompts and forwards these prompts to model adapters.
+Model adapters abstract away backend-specific details and provide a uniform interface for interacting with local or API-based language models.
+Model outputs are then passed to the judging pipeline, which evaluates responses using a combination of heuristic checks, classifier-based methods, and optional LLM-based judges.
+
+Both orchestration events and judging results are recorded in an append-only JSONL log store, which acts as the single source of truth for experiment outcomes.
+A lightweight reporting interface consumes these logs to provide aggregated metrics, inspect individual failures, and support further analysis.
 
 \subsection{Principal data and control flows}
 
