@@ -432,7 +432,14 @@ The literature and tools surveyed above show that, although the research communi
 These gaps motivate the design goals for the toolkit developed in this thesis: namely, modularity and pluggability (attack generators, model adapters, evaluators), reproducible experiment manifests and logging, hybrid judging (balancing cost and fidelity), and explicit support for multi-turn conversational testing.
 By addressing these gaps, the proposed toolkit aims to lower the barrier to entry for systematic LLM red-teaming for researchers, students, and small teams.
 
-\chapter{Design}\label{ch:design}
+\chapter{Design of the Red-Teaming Toolkit}\label{ch:design}
+
+This chapter focuses on the design of the proposed red-teaming toolkit.
+We first outline the design requirements derived from the analysis in the preceding chapters.
+Subsequently, we present the overall system architecture.
+The chapter then describes the structure of the toolkit and the interactions between its main components.
+
+Figure~\ref{design-figure} provides an overview of the proposed system architecture.
 
 \begin{figure}[htbp]
   \centering
@@ -444,8 +451,6 @@ By addressing these gaps, the proposed toolkit aims to lower the barrier to entr
     }
   \label{design-figure}
 \end{figure}
-
-\newpage{}
 
 \section{Requirements and Goals}
 
