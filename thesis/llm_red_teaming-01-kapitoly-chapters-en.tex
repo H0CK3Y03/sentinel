@@ -57,7 +57,7 @@ Because of the scale of their training data and capacity, LLMs encode a wide var
 
 This scale gives them impressive generative and reasoning capabilities, but also makes them susceptible to emergent, unintended behaviours that are not trivially predictable — including safety failures, policy evasion, and social-engineering style manipulation~\cite{wei2023jailbroken}.
 
-\subsection{Alignment and Safety Interventions}\label{sec:alignment}
+\subsection{Alignment and Safety Interventions}\label{subsec:alignment}
 
 To mitigate risks from raw pre-trained models, developers commonly apply a pipeline of alignment techniques.
 
@@ -93,7 +93,7 @@ These categories correspond to those used in large-scale safety benchmarks and r
 
 For example, frameworks such as {\em HarmBench} operationalise a broad set of harm categories and provide standard test sets and evaluation protocols across LLMs and red-teaming methods~\cite{mazeika2024harmbench}.
 
-\subsection{Application- and System-level Risks: OWASP LLM Top 10 (2025)}\label{sec:owasp}
+\subsection{Application- and System-level Risks: OWASP LLM Top 10 (2025)}\label{subsec:owasp}
 
 Beyond model-level behavioural vulnerabilities, real-world LLM deployments introduce additional system and integration risks.
 The OWASP LLM Top 10 (2025)~\cite{owasp2025top} provides an industry-oriented overview of common failure modes encountered in practical LLM-based systems.
@@ -124,7 +124,7 @@ Finally, we review evaluation metrics and benchmark frameworks commonly used to 
 
 The chapter concludes with a synthesis of gaps in current tooling and evaluation practice, motivating the design of the toolkit proposed in this thesis.
 
-\section{Red-teaming: Definitions and Methodology}\label{sec:red-teaming-def}
+\section{Red-Teaming: Definitions and Methodology}\label{sec:red-teaming-def}
 
 Originally developed in cybersecurity and military contexts, \emph{red-teaming} refers to the practice of simulating adversaries to probe system vulnerabilities before deployment~\cite{purpura2025building}.
 
@@ -144,7 +144,7 @@ Modern red-teaming approaches in LLMs span from fully manual adversarial testing
 
 The following subsections describe manual, rule-based, and automated red-teaming methodologies in more detail.
 
-\subsection{Manual, Rule-based and Automated Red-teaming}\label{sec:red-teaming-methods}
+\subsection{Manual, Rule-based and Automated Red-Teaming}\label{subsec:red-teaming-methods}
 
 \begin{description}
   \item[Manual red-teaming:] human experts write adversarial prompts, simulate realistic misuse scenarios, and attempt to elicit harmful or policy-violating responses~\cite{purpura2025building}.
@@ -171,7 +171,7 @@ This section surveys the primary attack classes considered in contemporary LLM r
 
 \newpage{}
 
-\subsection{Single-turn Jailbreaking}\label{sec:single-turn}
+\subsection{Single-turn Jailbreaking}\label{subsec:single-turn}
 
 Single-turn jailbreaks are adversarial prompts supplied in one-shot (single user message) that instruct the model to ignore its safety filters or system instructions~\cite{wei2023jailbroken}.
 
@@ -186,7 +186,7 @@ Despite alignment training, many models remain vulnerable to these attacks~\cite
   \label{single-turn-figure}
 \end{figure}
 
-\subsection{Prompt Injection}\label{sec:prompt-injection}
+\subsection{Prompt Injection}\label{subsec:prompt-injection}
 
 Prompt injection refers to attacks where user-supplied input (or external content, in the case of integrated applications) is directly interpreted by the LLM as instructions, potentially overriding or modifying hidden system prompts~\cite{perez2022ignore}.
 This is a major concern for real-world applications embedding LLMs (chatbots, agents, document processors, pipelines), because attackers can inject maliciously crafted instructions that the model interprets as legitimate.
@@ -202,7 +202,7 @@ Prompt injection remains among the most significant security threats for LLM-bas
   \label{prompt-injection-figure}
 \end{figure}
 
-\subsection{Multi-turn and Conversational Attacks}\label{sec:multi-turn}
+\subsection{Multi-turn and Conversational Attacks}\label{subsec:multi-turn}
 
 Rather than achieve a jailbreak in a single prompt, adversaries may perform a sequence of manipulative steps — gradually steering the conversation, exploiting context persistence, memory, and the model's inability to consistently refuse undesirable requests~\cite{wei2023jailbroken}.
 
@@ -218,7 +218,7 @@ Recent research recasts automated red-teaming as a multi-turn optimisation probl
   \label{multi-turn-figure}
 \end{figure}
 
-\subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{sec:universal}
+\subsection{Universal / Transferable Triggers and Trojan-style Attacks}\label{subsec:universal}
 
 Universal triggers or transferable adversarial prompts aim to find short token sequences (prefixes, suffixes, or embedded instructions) that reliably trigger undesired model behaviour across different inputs and even across different models~\cite{zou2023universal}.
 This makes the attack highly reusable and dangerous.
@@ -250,7 +250,7 @@ Because the trigger is designed to appear benign, such attacks may bypass LLM de
 
 \newpage{}
 
-\subsection{Prompt-based Evasion and Adversarial Perturbations}\label{sec:perturbation}
+\subsection{Prompt-based Evasion and Adversarial Perturbations}\label{subsec:perturbation}
 
 Beyond explicit instructions or injected content, adversaries may attempt adversarial prompting via subtle token-level perturbations, insertions, deletions, or encodings — minimal but adversarial changes that remain semantically similar to benign prompts yet cause the model to deviate~\cite{zou2023universal}.
 
@@ -274,7 +274,7 @@ The following metrics and benchmarks are widely adopted in contemporary LLM safe
 
 \newpage{}
 
-\subsection{Quantitative Metrics}\label{sec:metrics-quant}
+\subsection{Quantitative Metrics}\label{subsec:metrics-quant}
 
 \begin{itemize}
   \item \textbf{Attack Success Rate (ASR):} the proportion of adversarial attempts (prompts) that succeed in eliciting harmful or policy-violating outputs. ASR is the most common metric, but it depends heavily on the definition of "harmful" and on the quality of the judge (classifier, LLM-judge, human)~\cite{wei2023jailbroken, mazeika2024harmbench, schoepf2025madmax}.  
@@ -285,7 +285,7 @@ The following metrics and benchmarks are widely adopted in contemporary LLM safe
   \item \textbf{Conversational / Trajectory Metrics:} in multi-turn attack scenarios, metrics may capture success over a dialogue trajectory (e.g., whether harmful content emerges at any point), time-to-failure, or complexity (number of turns required)~\cite{schoepf2025madmax, mehrotra2024tap}.  
 \end{itemize}
 
-\subsection{Benchmarks and Standardised Suites}\label{sec:benchmarks}
+\subsection{Benchmarks and Standardised Suites}\label{subsec:benchmarks}
 
 To enable systematic comparison across red-teaming methods and LLMs, several standard benchmarks have recently been developed.
 A prominent example is {\em HarmBench}, which provides an open-source evaluation framework, a large pool of red-teaming methods and a diverse set of target models and defences~\cite{mazeika2024harmbench}.
@@ -303,7 +303,7 @@ Their design choices, capabilities, and limitations differ significantly, reflec
 
 \newpage{}
 
-\subsection{Frameworks for rule-based or template-based red-teaming}\label{sec:pyrit-garak}
+\subsection{Frameworks for rule-based or template-based red-teaming}\label{subsec:pyrit-garak}
 
 Frameworks such as {\em PyRIT} provide a modular architecture for plugging in model backends, defining prompt templates, logging results, and running interactive or batch red-teaming sessions.
 These tools are often lightweight and well-suited for smaller projects or smaller compute budgets, but tend to lack advanced automated search or generation capabilities~\cite{munoz2024pyrit}.
@@ -312,7 +312,7 @@ Another widely used toolkit is {\em garak}.
 garak provides "probes, generators, and detectors": probes manage attack logic; generators abstract target models (LLMs, dialog systems, or any component taking text and returning text); detectors assess whether output indicates a successful attack; and the framework compiles results into human-readable reports (HTML and JSON).
 This design allows red-teaming across a variety of model backends and output modalities, but — as with other rule-based frameworks — it may not support automated, learning-based attack generation or multi-turn conversational scenarios out of the box~\cite{derczynski2024garak}.
 
-\subsection{Automated Red-Teaming Frameworks}\label{sec:madmax-automatic}
+\subsection{Automated Red-Teaming Frameworks}\label{subsec:madmax-automatic}
 
 More advanced frameworks attempt to integrate attack generation, execution, and evaluation into a unified pipeline.
 Notable recent work includes {\em MAD-MAX}, a modular adversarial red-teaming framework designed to allow multiple attack strategies (template-based, search-based, LLM-driven) within a pluggable architecture~\cite{schoepf2025madmax}.
@@ -322,7 +322,7 @@ Beyond modular frameworks, recent work explores fully automated, trajectory-base
 For example, the automated red-teaming approach by Belaire et al. (2025) formalises multi-turn red-teaming as a Markov Decision Process (MDP), enabling attack policies to optimise over entire conversation trajectories rather than single messages~\cite{belaire2025automatic}.
 This methodology captures realistic adversarial behaviour and reveals vulnerabilities that single-turn or template-based attacks may miss.
 
-\subsection{Defence-oriented and Certified Safety Approaches}\label{sec:defences}
+\subsection{Defence-oriented and Certified Safety Approaches}\label{subsec:defences}
 
 In response to the growing sophistication of attacks, some work focuses on hardening LLMs against adversarial prompting.
 For example, the framework "erase-and-check" provides a method for certifying safety against adversarial prompt modifications (suffix insertion, insertion at arbitrary positions, adversarial infusions) under a bounded adversarial size.
@@ -439,9 +439,12 @@ By addressing these gaps, the proposed toolkit aims to lower the barrier to entr
 \chapter{Design of the Red-Teaming Toolkit}\label{ch:design}
 
 This chapter focuses on the design of the proposed red-teaming toolkit.
-We first outline the design requirements derived from the analysis in the preceding chapters.
-Subsequently, we present the overall system architecture.
-The chapter then describes the structure of the toolkit and the interactions between its main components.
+
+First, we outline the design requirements derived from the analysis in Chapter~\ref{ch:red-teaming}.
+
+We then present the overall system architecture and describe the core modules, their responsibilities, and the main data and control flows that run experiments.
+
+Finally, the chapter discusses implementation-oriented technology choices and operational considerations that motivated the prototype implementation.
 
 Figure~\ref{design-figure} provides an overview of the proposed system architecture.
 
@@ -456,11 +459,13 @@ Figure~\ref{design-figure} provides an overview of the proposed system architect
   \label{design-figure}
 \end{figure}
 
-\section{Requirements and Goals}
+\section{Requirements and Goals}\label{sec:requirements}
 
-This section summarises the functional and non-functional requirements that guided the design of the toolkit and ties them to gaps identified in Chapter~\ref{ch:red-teaming} section~\ref{sec:gaps}.
+This section summarises the functional and non-functional requirements that guided the design of the toolkit.
+These requirements are derived from the gaps identified in Chapter~\ref{ch:red-teaming}, Section~\ref{sec:gaps}, and reflect both practical usability concerns and research-oriented evaluation needs.
+Together they shaped the system's modular architecture, the choice of logging format, and constraints on compute and deployment.
 
-\subsection{Functional requirements}
+\subsection{Functional requirements}\label{subsec:functional-reqs}
 
 \begin{itemize}
   \item \textbf{Attack generators:} support manual, template-based and automated generation plugins that produce candidate adversarial prompts.
@@ -471,67 +476,88 @@ This section summarises the functional and non-functional requirements that guid
   \item \textbf{Reporting UI:} a minimal web UI for browsing results, filtering experiments and exporting artifacts for further analysis.
 \end{itemize}
 
-\subsection{Non-functional requirements}
+A short synthesis: the functional requirements translate the identified gaps into concrete capabilities — accessible generation of adversarial inputs, backend-agnostic execution, a layered evaluation pipeline, and support for reproducible experiments and result inspection.
+
+\subsection{Non-functional requirements}\label{subsec:nonfunctional-reqs}
 
 \begin{itemize}
   \item \textbf{Modularity:} clear separation of concerns (adapters, generators, judges) and stable plugin interfaces to ease extension and testing.
   \item \textbf{Low compute footprint:} enable lightweight local operation (e.g., small LLaMA on CPU / quantised runtime) and optional scaling to heavier compute for automated pipelines.
-  \item \textbf{Reproducibility:} deterministic experiment manifests (seed, model config, attack generator config, prompts) and machine-readable logs to allow reruns and regression testing.
+  \item \textbf{Reproducibility:} deterministic experiment manifests (seed, model config, attack generator config, judge config, prompts) and machine-readable logs to allow reruns and regression testing.
   \item \textbf{Extensibility:} simple mechanisms to add new attackers, adapter implementations, or judge modules without changing core orchestrator code.
   \item \textbf{Security and containment:} default safe settings (rate limits, sandboxed evaluation, no automatic execution of outputs) with clear opt-in for risky features.
 \end{itemize}
 
-\subsection{Mapping to gaps from Chapter~\ref{ch:red-teaming} section~\ref{sec:gaps}}
+\subsection{Mapping to gaps from Chapter~\ref{ch:red-teaming} section~\ref{sec:gaps}}\label{subsec:gap-mapping}
 
 The requirements above are chosen to address the key gaps identified earlier:
 (1) broaden access through lightweight tooling,
 (2) improve judge reliability via hybrid judging,
 (3) enable multi-turn trajectory testing through the orchestrator,
-(4) support diverse backends via model adapters
-and (5) increase reproducibility via manifests and JSONL logging.
+(4) support diverse backends via model adapters, and
+(5) increase reproducibility via manifests and JSONL logging.
 
-\section{High-level Architecture}
+\section{High-level Architecture}\label{sec:architecture}
 
 Figure~\ref{design-figure} presents the component-level architecture.
-The following paragraphs describe components and the main data/control flows.
+The following paragraphs describe components and the main data and control flows.
 
-\subsection{Components (narrative)}
+\subsection{Components (narrative)}\label{subsec:components}
 
-The system is organised around a small set of well-defined components, each with a clearly separated responsibility.
-Experiments are specified using declarative manifests, which describe the target models, attack generators, judging configuration, and execution parameters.
-These manifests are consumed by the orchestrator, which serves as the central coordination component of the toolkit.
+The toolkit is organised around a concise set of components whose responsibilities map directly to the requirements described above.
 
-During execution, the orchestrator invokes attack generators to obtain candidate adversarial prompts and forwards these prompts to model adapters.
-Model adapters abstract away backend-specific details and provide a uniform interface for interacting with local or API-based language models.
-Model outputs are then passed to the judging pipeline, which evaluates responses using a combination of heuristic checks, classifier-based methods, and optional LLM-based judges.
+Central to the design are declarative \textbf{manifests}: small YAML/JSON specifications that name the target model(s), select the attack generator(s), configure the judging pipeline and thresholds, and record execution parameters (seeds, batch sizes, rate limits, output paths).
+Manifests serve two purposes: they make experiments reproducible by recording the exact configuration needed to rerun a trial, and they act as an explicit contract between components so that adapters, generators and judges can be composed without implicit coupling.
 
-Both orchestration events and judging results are recorded in an append-only JSONL log store, which acts as the single source of truth for experiment outcomes.
-A lightweight reporting interface consumes these logs to provide aggregated metrics, inspect individual failures, and support further analysis.
+The \textbf{orchestrator} is the control centre that consumes manifests and coordinates execution. By centralising sequencing, retries, rate-limit handling and provenance capture, the orchestrator enforces determinism where required and provides a single place to collect metadata for auditing and analysis.
+This centralisation also simplifies comparing alternative attack strategies or backends because experiment control logic is kept separate from generation and evaluation code.
 
-\subsection{Principal data and control flows}
+\textbf{Model adapters} decouple backend-specific details from orchestration and judging logic.
+Each adapter translates the toolkit's generic generate/evaluate calls into backend-specific payloads for local runtimes, remote APIs, or user-supplied custom code.
+Adapters therefore enable interchangeable backends (local, API, or bespoke research runtimes), declare whether they support black-box or white-box interaction, and report computational profile and cost metadata that the orchestrator records.
 
-Refer to Figure~\ref{design-figure} for the visual flow.
-Key flows:
+\textbf{Attack generators} encapsulate adversary logic so that generation strategies—ranging from curated templates to search-based methods or LLM-driven proposal generators—can be developed, tested, and compared independently of execution concerns.
+Treating attackers as plugins improves reproducibility (via manifest configuration and deterministic seeding) and encourages safe development practices (the plugin interface limits the capability surface of attack code and enables isolated execution via containerisation).
+
+The \textbf{hybrid judging pipeline} implements a layered evaluation strategy: fast heuristic filters catch obvious cases at low cost, classifier-based judges handle well-scoped categories of harm, and optional LLM-based evaluators provide calibrated judgments for ambiguous or complex responses.
+This layering balances throughput, cost, and evaluation fidelity while enabling the system to record per-judge metadata (labels, confidences, and calibration statistics) for later analysis.
+
+An append-only \textbf{JSONL log store} is used as the canonical record of execution events and verdicts to prioritise transparency, auditability, and reproducibility: logs are written sequentially without in-place modification, remain easy to inspect with standard tooling, and can be consumed independently by the reporting UI or offline analysis scripts.
+
+A lightweight \textbf{reporting UI} consumes the canonical JSONL logs to enable inspection, failure analysis, filtering and export of experimental artifacts.
+The UI is intentionally read-only and analysis-first: it exposes provenance and verdicts to reviewers and collaborators without embedding additional processing logic that would complicate reproducibility.
+
+At runtime the flows are straightforward and mirror the declarative structure of manifests.
+The orchestrator loads a manifest, initialises the selected attack generator(s) and model adapter(s), requests prompt candidates, submits prompts to adapters for inference, forwards model outputs to the judging pipeline, and appends structured events and verdicts to the append-only JSONL log store.
+The reporting UI and any offline analysis tools then read the logs to produce aggregate metrics, inspect individual traces, and support further research.
+This organisation preserves provenance, supports interchangeable components, and makes it straightforward to rerun or extend experiments while maintaining reproducibility and safety.
+
+\subsection{Principal data and control flows}\label{subsec:data-control-flows}
+
+The system's runtime behaviour can be understood as a set of clearly defined control and data flows that move experiment specifications to evaluated outcomes while preserving provenance for reproducibility and auditability.
+
+The enumerated list below summarises the principal interactions; the orchestrator sits at the centre of these flows and coordinates generators, adapters and judges.
+
 \begin{enumerate}
   \item \textbf{Manifest $\rightarrow$ Orchestrator:} orchestrator loads the manifest describing experiment parameters.
-  \item \textbf{Orchestrator $\rightarrow$ Attack generators:} the orchestrator initialises and invokes the selected attack generator according to the manifest and requests candidate prompts during experiment execution.
+  \item \textbf{Orchestrator $\rightarrow$ Attack generators:} the orchestrator initialises and invokes the selected attack generator according to the manifest, requests candidate prompts during experiment execution and provides context or feedback as needed. 
   \item \textbf{Attack generators $\rightarrow$ Orchestrator:} returns candidate prompts based on initial configuration and the current request or internal state.
   \item \textbf{Orchestrator $\rightarrow$ Model adapters:} sends prompts for execution against selected backend.
   \item \textbf{Model adapters $\rightarrow$ Orchestrator:} returns raw responses and metadata (latency, tokens, status).
   \item \textbf{Orchestrator $\rightarrow$ Judge adapters:} the orchestrator initialises and invokes the selected judges and submits outputs for evaluation.
   \item \textbf{Judge adapters $\rightarrow$ Orchestrator:} returns structured verdicts.
-  \item \textbf{Judge adapters $\rightarrow$ Log store:} judges append structured verdicts and labels.
-  \item \textbf{Orchestrator $\rightarrow$ Log store:} stores experiment metadata, prompts, raw responses and orchestration events.
+  \item \textbf{Judge adapters $\rightarrow$ Log store:} judges append structured verdicts in JSONL format.
+  \item \textbf{Orchestrator $\rightarrow$ Log store:} stores experiment metadata, prompts, raw responses and orchestration events in JSONL format.
   \item \textbf{Log store $\rightarrow$ Reporting UI:} the UI reads logs to visualise and export results.
 \end{enumerate}
 
-\section{Module Specifications}
+\section{Module Specifications}\label{sec:module-specs}
 
-This section presents concrete interfaces, expected behaviour, and configuration knobs for each core module.
+This section describes the core modules of the toolkit in more detail, focusing on their interfaces, responsibilities, and configuration options relevant to the implementation.
 
-\subsection{Model Adapters}
+\subsection{Model Adapters}\label{subsec:model-adapters}
 
-\paragraph{Purpose.} Provide a uniform interface to execute prompts on heterogeneous backends.
+\paragraph{Purpose.} Provide a uniform interface to execute prompts on heterogeneous backends, while permitting the inclusion of arbitrary model implementations and custom inference code.
 
 \paragraph{Interface (conceptual)}
 \begin{verbatim}
@@ -541,26 +567,48 @@ class ModelAdapter:
     def cost_estimate(prompt: str, config: Dict) -> CostInfo
 \end{verbatim}
 
+\paragraph{Design rationale.}
+Adapters are used to isolate the orchestrator from backend-specific details so that experiments may be rerun with different backends without changing orchestration or judging logic.
+Critically, the adapter abstraction must support both API-style connectors for remote providers and custom code entrypoints that allow the user to integrate bespoke model runtimes (for example an experimental research model, a new open-source checkpoint, or a custom inference pipeline).
+This flexibility enables reproducible comparison experiments and encourages extensibility: researchers can evaluate novel model implementations simply by providing a compatible adapter.
+
 \paragraph{Supported backends (examples)}
 \begin{itemize}
-  \item \textbf{Local LLaMA/llama.cpp} — lightweight, free option for both generation and judging.
+  \item \textbf{Local LLaMA/llama.cpp} — lightweight, local, free option for both generation and judging.
   \item \textbf{API backends} — optional connectors for providers (OpenAI, Anthropic, etc.) implemented as separate adapters.
+  \item \textbf{Custom runtime / plugin code} — user-provided Python modules or binary runtimes integrated via the adapter interface and sandboxed execution.
   \item \textbf{Mock/test} — deterministic stub for unit tests and CI.
 \end{itemize}
 
+\paragraph{Inference modes and performance considerations.}
+Adapters should explicitly expose the inference characteristics they support. Two common modes are:
+\begin{itemize}
+  \item \textbf{Black-box inference:} the orchestrator interacts with the model purely via an API that returns text outputs and metadata.
+  This mode is appropriate for remote providers or proprietary runtimes where internal state is unavailable and interaction is limited to prompt--response exchanges.
+  \newpage{}
+  \item \textbf{White-box inference:} the adapter exposes internal model information (for example logits, attention masks, or intermediate activations) or allows custom model-internal callbacks.
+  This mode is appropriate for local or research-oriented runitmes and enables attack strategies or analyses that require gradient access, introspection or fine-grained instrumentation of model behaviour.
+\end{itemize}
+The adapter should declare which mode(s) it supports so that attack generators and judges can adapt accordingly.
+
+\paragraph{Quantisation and low-compute operation.}
+Practical deployment on laptops or small servers motivates support for quantised runtimes (for example GGUF~\cite{gerganov2023gguf} or other low-precision formats) within local adapters.
+Adapters should therefore allow configuration flags that request quantised model files or reduced-precision inference.
+Where appropriate, adapters should also report effective memory usage and latency estimates, so manifests can record the computational profile of each experiment for reproducibility.
+
 \paragraph{Adapter responsibilities}
 \begin{itemize}
-  \item translate generic call into backend-specific payload,
+  \item translate generic calls into backend-specific payloads,
   \item manage rate limits, errors, retries and backoff policies,
-  \item normalise response object (text, tokens, metadata),
-  \item surface cost/latency metadata to the orchestrator.
+  \item normalise response objects (text, tokens, metadata),
+  \item surface cost/latency metadata to the orchestrator,
+  \item declare supported inference mode(s) and quantisation capability,
+  \item provide a secure execution pathway for custom code (sandboxing or subprocess isolation).
 \end{itemize}
 
-\newpage{}
+\subsection{Attack Generators}\label{subsec:attack-generators}
 
-\subsection{Attack Generators}
-
-\paragraph{Purpose.} Produce adversarial prompts or prompt sequences under an agreed interface.
+\paragraph{Purpose.} Produce adversarial prompts or prompt sequences under an agreed interface, while encapsulating the generation strategy so that different attackers can be compared under identical experimental conditions.
 
 \paragraph{Plugin interface (conceptual)}
 \begin{verbatim}
@@ -570,19 +618,34 @@ class AttackGenerator:
     def reset() -> None
 \end{verbatim}
 
-\paragraph{Types}
+\paragraph{Design rationale.}
+Making attack logic a first-class plugin type separates the concern of adversary design from experiment execution, which improves reproducibility and reuse. It also enables the toolkit to host diverse attacker implementations — from hand-curated templates to search-based or LLM-driven generators — while the orchestrator remains agnostic to generation internals.
+
+\paragraph{Module responsibilities and required capabilities.}
+An attack module must:
 \begin{itemize}
-  \item \textbf{Manual/template:} curated lists or parametric templates (simple and reproducible).
-  \item \textbf{Search-based (TAP-like):} tree/beam search over prompt space (query-efficient).
-  \item \textbf{LLM-driven:} use an LLM attacker to synthesise candidate prompts (requires judge validation).
+  \item accept a declarative configuration (from the experiment manifest) that specifies seeds, constraints, and generation parameters;
+  \item return a sequence (or batch) of \texttt{PromptCandidate} objects, each containing the prompt text and an identifier;
+  \item offer deterministic behaviour under a fixed seed unless the manifest requests stochasticity (to enable reruns and regression testing);
+  \item provide an optional stateful policy interface when multi-turn or adaptive attacks are required (e.g., methods for updating internal state based on model responses);
+  \item document whether it requires white-box capabilities (e.g., access to logits, gradients) or can operate in a black-box setting, and gracefully degrade if unavailable;
+  \item include lightweight validation hooks or unit tests (for example, a \texttt{sanity\_check()} method) to verify expected output formats prior to running large experiments.
 \end{itemize}
 
-\paragraph{Notes}
-Generators should be stateless between experiments unless the manifest explicitly requests stateful policies (e.g., multi-turn attackers).
+\paragraph{Types and examples}
+Attack generator implementations may include:
+\begin{itemize}
+  \item \textbf{Manual / template-based:} curated prompts or parameterised templates appropriate for reproducible baselines.
+  \item \textbf{Search-based:} tree or beam-search algorithms that explore the prompt space, prioritising query-efficiency.
+  \item \textbf{LLM-driven generators:} use an LLM to propose candidate prompts.
+\end{itemize}
 
-\subsection{Judges and Evaluation}
+\paragraph{Testing and safety considerations}
+Generators that produce content likely to trigger harmful outputs should be accompanied by explicit safety metadata (a declared risk level in the manifest) and be executed only under appropriate opt-in settings. For development, each module should provide small example manifests and self-checking routines so that the orchestrator can verify compatibility before large-scale runs begin.
 
-\paragraph{Purpose.} Decide whether a given model output constitutes a success for a given attack objective and produce structured metadata.
+\subsection{Judges and Evaluation}\label{subsec:judges}
+
+\paragraph{Purpose.} Decide whether a given model output constitutes a success for a given attack objective and produce a structured verdict.
 
 \paragraph{Hybrid pipeline}
 \begin{enumerate}
@@ -600,8 +663,6 @@ class JudgeAdapter:
     def reset() -> None
 \end{verbatim}
 
-\newpage{}
-
 \paragraph{Verdict structure (conceptual)}
 \begin{itemize}
   \item \texttt{verdict\_id} (uuid)
@@ -614,9 +675,9 @@ class JudgeAdapter:
 \end{itemize}
 
 \paragraph{Judge reliability}
-Record false positive/negative estimates, and — when possible — human calibration metadata (annotation counts, inter-annotator agreement).
+Record false positive/negative estimates, and when possible, human calibration metadata (annotation counts, inter-annotator agreement).
 
-\subsection{Experiment Manifests and Logging}
+\subsection{Experiment Manifests and Logging}\label{subsec:manifests-logging}
 
 \paragraph{Manifest (declarative)}  
 A manifest is a small YAML/JSON file describing:
@@ -629,9 +690,11 @@ A manifest is a small YAML/JSON file describing:
   \item \texttt{output} path / logging destination
 \end{itemize}
 
-\paragraph{Logging format (JSONL)}  
+\paragraph{Logging format (conceptual)}  
 JSONL (newline-delimited JSON) is used as the canonical export format for logs.
 Each line represents an atomic event record, for example:
+
+\newpage{}
 
 \begin{verbatim}
 {
@@ -649,14 +712,9 @@ Each line represents an atomic event record, for example:
 }
 \end{verbatim}
 
-\paragraph{Log store properties}
-\begin{itemize}
-  \item append-only and immutable (to aid reproducibility and auditing)
-  \item compact and machine-readable (JSONL encourages streaming analysis)
-  \item optionally indexed for fast UI queries (SQLite / small local index)
-\end{itemize}
+The JSONL log serves as the canonical, append-only record of experiment events; it is compact, streaming-friendly and easy to import for offline analysis or archival.
 
-\subsection{Plugin System and Extensibility}
+\subsection{Plugin System and Extensibility}\label{subsec:plugin-system}
 
 \paragraph{Design principles}
 \begin{itemize}
@@ -673,29 +731,47 @@ Each line represents an atomic event record, for example:
   \item at experiment end orchestrator calls `reset()` or `close()`.
 \end{enumerate}
 
-\section{Security, Privacy and Ethical Considerations}
+\section{Security, Privacy and Ethical Considerations}\label{sec:security-privacy-ethics}
 
 The toolkit is intentionally designed for responsible use.
 Key safeguards and guidance:
 \begin{itemize}
   \item \textbf{Safe defaults:} rate limits, conservative timeouts, and an explicit opt-in for any code-execution or tool-integration features.
-  \item \textbf{PII handling:} redact or avoid storing sensitive user data; if necessary, store only hashed identifiers and be explicit about retention policies.
+  \item \textbf{PII handling:} redact or avoid storing personally identifiable information (PII); if necessary, store only hashed identifiers and be explicit about retention policies.
   \item \textbf{Red-team ethics:} require a documented use-case and owner contact for experiments that simulate real-world exploitation; discourage any experiments that could meaningfully cause harm or enable illegal activity.
   \item \textbf{Containment:} run external or third-party plugins in isolated processes/containers; ensure model outputs are never automatically executed by the system.
   \item \textbf{Logging and audit:} logs are append-only and include experiment provenance to enable post-hoc review.
 \end{itemize}
 
+To reduce risks associated with executing user-supplied or third-party code, adapters and plugin loaders execute untrusted code in isolated subprocesses or lightweight containers and require explicit opt-in in the manifest for any plugin that requests elevated capabilities (for example code execution, external network access, or writing to the host filesystem).
+
 \section{Conceptual Deployment}\label{sec:conceptual-deployment}
 
-\paragraph{Technology choices (conceptual)}
-\begin{itemize}
-  \item \textbf{Language:} Python (ecosystem, packaging, plugin support).
-  \item \textbf{Model runtime:} llama.cpp as the core runtime with a Python binding (e.g., \texttt{llama-cpp-python}) used in the adapter. Use quantised model files (GGUF) for low-memory operation where appropriate.
-  \item \textbf{Orchestrator:} simple Python service (CLI using Typer, async runner using asyncio).
-  \item \textbf{Log store:} append-only JSONL files on disk as the canonical experiment log.
-  \item \textbf{UI:} lightweight read-only web app (Streamlit or Flask + small frontend) that reads logs/index.
-  \item \textbf{Deployment:} Docker + docker-compose for reproducible local deployments.
-\end{itemize}
+\subsection{Technology choices}\label{subsec:technology-choices}
+
+The technology choices for the implementation prioritise accessibility, reproducibility, and pragmatic extensibility, while maintaining sufficient performance for red-teaming experiments rather than optimising for maximal throughput.
+
+\textbf{Python} was selected as the primary implementation language because its ecosystem provides mature packaging and testing tools, straightforward plugin discovery mechanisms, and broad familiarity in the research community.
+These properties reduce friction for contributors and simplify reproducible packaging of experiments.
+
+For local model runtimes we favour \texttt{llama.cpp} together with an idiomatic Python binding (for example \texttt{llama-cpp-python}) because this combination supports low-memory, CPU-based inference and quantised model files (GGUF~\cite{gerganov2023gguf} or similar formats).
+Using a quantised, CPU-capable runtime aligns with the design requirement to enable lightweight operation on personal workstations while still permitting an upgrade path to more powerful GPU/proprietary backends via the adapter interface.
+
+Adapters expose a uniform API that allows the orchestrator to invoke either remote API backends (OpenAI, Anthropic, etc.) or custom local runtimes.
+Crucially, adapters also permit user-supplied custom code entrypoints so that research implementations, experimental model checkpoints, or bespoke inference pipelines can be evaluated without modifying core orchestration logic.
+Where custom code is accepted, the design emphasises sandboxing and subprocess isolation to reduce security and stability risks.
+
+For experiment provenance and offline analysis the system uses newline-delimited JSON (\textbf{JSONL}) as the canonical log format.
+JSONL is intentionally compact, streaming-friendly, and language-agnostic: it enables straightforward append-only logging, simple programmatic consumption using standard Unix-style tooling, and easy import into analysis environments.
+To support interactive inspection and dissemination of results, a lightweight read-only reporting web application is provided.
+Frameworks such as Streamlit or a small Flask-backed frontend are appropriate at this stage because they minimise development overhead while delivering sufficient functionality for filtering, inspecting individual trials, and exporting artifacts; heavier frontend frameworks are unnecessary given the read-only, analysis-first design.
+
+Reproducible local deployment is supported via containerisation (Docker and docker-compose) so that the environment, Python dependencies, and optional local runtime binaries can be packaged and shared.
+Containers make it easier to document representative resource requirements and to provide pre-configured quantised model files for laptop-first experiments.
+
+Finally, the orchestrator is designed as a simple Python service (a CLI implemented with \textbf{Typer} and an \textbf{asyncio}-based runner) to keep the implementation compact, testable, and readable for other developers or researchers who may extend the toolkit.
+
+Together, these technology choices form a practical stack that aligns with the chapter's stated requirements: modularity through clear adapter interfaces, low compute footprint through quantised local runtimes, reproducibility through manifest-driven experiments and JSONL logs, and extensibility via plugin entrypoints and containerised deployments.
 
 \paragraph{Local vs API backends.}
 The design prioritises local execution using LLaMA models via \texttt{llama.cpp} for development and cost-free judging.
@@ -703,16 +779,21 @@ Adapters for API-based model providers are optional and configured declaratively
 The adapter pattern ensures that backends can be exchanged without modifying orchestration logic.
 
 \paragraph{Logging and indexing.}
-Newline-delimited JSON (JSONL) is used as the canonical append-only logging format for experiment results.
-For improved query performance in the user interface, an optional lightweight index (e.g., SQLite) may be derived from the JSONL logs.
+For improved query performance in the user interface, an optional lightweight index (e.g., SQLite or FAISS) may be derived from the canonical JSONL logs.
 Log rotation and retention policies are considered as operational concerns for long-running experiments.
 
 \paragraph{Operational considerations.}
-\begin{itemize}
-  \item \textbf{Resource constraints:} the design assumes documentation of expected RAM and CPU requirements for representative model sizes, with recommendations for smaller models during laptop-based development.
-  \item \textbf{Security and containment:} untrusted plugins may be executed in isolated subprocesses or lightweight containers; model outputs are never automatically executed.
-  \item \textbf{Observability:} the orchestrator may expose basic health checks and runtime metrics (e.g., request rate, latency, queue length, judge throughput) to support debugging and evaluation.
-\end{itemize}
+The operational design of the toolkit is guided by the assumption that it will primarily be used in resource-constrained environments, such as personal workstations or small research servers.
+Consequently, expected CPU and memory requirements are documented for representative model sizes, and the use of smaller or quantised models is recommended during development and exploratory experimentation.
+This enables practitioners to conduct meaningful red-teaming experiments without requiring dedicated accelerator hardware.
+
+From a security and containment perspective, the toolkit assumes that plugins and attack generators may be untrusted or experimental.
+To mitigate associated risks, the design supports execution of external components in isolated subprocesses or lightweight containers.
+In addition, model outputs are treated as untrusted data and are never automatically executed or passed to downstream systems without explicit user intervention.
+
+Basic observability features are considered an important operational aid rather than a core contribution of the toolkit.
+The orchestrator may therefore expose lightweight health checks and runtime metrics, such as request rates, latency distributions, queue lengths, and judge throughput.
+These signals support debugging, performance evaluation, and failure analysis during both development and experimental use, while remaining intentionally simple to avoid additional operational complexity.
 
 \chapter{Implementation}\label{ch:implementation}
 
