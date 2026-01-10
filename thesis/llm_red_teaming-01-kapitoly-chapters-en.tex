@@ -454,7 +454,7 @@ Figure~\ref{design-figure} provides an overview of the proposed system architect
   \caption{
     High-level architecture of the proposed red-teaming toolkit.
     The orchestrator coordinates attack generators, model adapters, and a hybrid judging pipeline.
-    Experiments are declared via manifests, all results and metadata are recorded in an append-only JSONL log store and surfaced through a lightweight reporting UI.
+    Experiments are declared via manifests, all results and metadata are recorded in an append-only newline-delimited JSON (JSONL) log store and surfaced through a lightweight reporting UI.
     }
   \label{design-figure}
 \end{figure}
@@ -539,14 +539,14 @@ The system's runtime behaviour can be understood as a set of clearly defined con
 The enumerated list below summarises the principal interactions; the orchestrator sits at the centre of these flows and coordinates generators, adapters and judges.
 
 \begin{enumerate}
-  \item \textbf{Manifest $\rightarrow$ Orchestrator:} orchestrator loads the manifest describing experiment parameters.
+  \item \textbf{Manifest $\rightarrow$ Orchestrator:} the orchestrator loads the manifest describing experiment parameters.
   \item \textbf{Orchestrator $\rightarrow$ Attack generators:} the orchestrator initialises and invokes the selected attack generator according to the manifest, requests candidate prompts during experiment execution and provides context or feedback as needed. 
   \item \textbf{Attack generators $\rightarrow$ Orchestrator:} returns candidate prompts based on initial configuration and the current request or internal state.
-  \item \textbf{Orchestrator $\rightarrow$ Model adapters:} sends prompts for execution against selected backend.
+  \item \textbf{Orchestrator $\rightarrow$ Model adapters:} sends prompts for execution against backend.
   \item \textbf{Model adapters $\rightarrow$ Orchestrator:} returns raw responses and metadata (latency, tokens, status).
   \item \textbf{Orchestrator $\rightarrow$ Judge adapters:} the orchestrator initialises and invokes the selected judges and submits outputs for evaluation.
   \item \textbf{Judge adapters $\rightarrow$ Orchestrator:} returns structured verdicts.
-  \item \textbf{Judge adapters $\rightarrow$ Log store:} judges append structured verdicts in JSONL format.
+  \item \textbf{Judge adapters $\rightarrow$ Log store:} the judges append structured verdicts in JSONL format.
   \item \textbf{Orchestrator $\rightarrow$ Log store:} stores experiment metadata, prompts, raw responses and orchestration events in JSONL format.
   \item \textbf{Log store $\rightarrow$ Reporting UI:} the UI reads logs to visualise and export results.
 \end{enumerate}
@@ -577,7 +577,7 @@ This flexibility enables reproducible comparison experiments and encourages exte
   \item \textbf{Local LLaMA/llama.cpp} — lightweight, local, free option for both generation and judging.
   \item \textbf{API backends} — optional connectors for providers (OpenAI, Anthropic, etc.) implemented as separate adapters.
   \item \textbf{Custom runtime / plugin code} — user-provided Python modules or binary runtimes integrated via the adapter interface and sandboxed execution.
-  \item \textbf{Mock/test} — deterministic stub for unit tests and CI.
+  \item \textbf{Mock/test} — deterministic stub for unit tests and continuous integration (CI).
 \end{itemize}
 
 \paragraph{Inference modes and performance considerations.}
@@ -587,7 +587,7 @@ Adapters should explicitly expose the inference characteristics they support. Tw
   This mode is appropriate for remote providers or proprietary runtimes where internal state is unavailable and interaction is limited to prompt--response exchanges.
   \newpage{}
   \item \textbf{White-box inference:} the adapter exposes internal model information (for example logits, attention masks, or intermediate activations) or allows custom model-internal callbacks.
-  This mode is appropriate for local or research-oriented runitmes and enables attack strategies or analyses that require gradient access, introspection or fine-grained instrumentation of model behaviour.
+  This mode is appropriate for local or research-oriented runtimes and enables attack strategies or analyses that require gradient access, introspection or fine-grained instrumentation of model behaviour.
 \end{itemize}
 The adapter should declare which mode(s) it supports so that attack generators and judges can adapt accordingly.
 
