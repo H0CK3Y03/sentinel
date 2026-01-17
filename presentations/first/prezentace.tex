@@ -7,24 +7,40 @@
 
 \documentclass[]{fitthesispresn}
 % Je-li prezentace v anglickém jazyce, je zapotřebí u třídy použít parametr english následovně (ev. zakomentovat předcházející řádek a odkomentovat následující): / If presentation is in English, it is necessary to use parameter english as follows (or comment the previous line and uncomment the following one):
-%\documentclass[english]{fitthesispresn}
+% \documentclass[english]{fitthesispresn}
 % Preferujete-li prezentaci v poměru 16:9, je zapotřebí u třídy použít parametr wideratio následovně (ev. zakomentovat předcházející řádek a odkomentovat následující): / If you prefer a 16:9 presentation, it is necessary to use parameter wideratio as follows (or comment the previous line and uncomment the following one):
 %\documentclass[wideratio]{fitthesispresn}
 
 % Nastavení informací pro úvodní stránku / Setting information for the title page
 %---------------------------------------------------------------------------
-\projectinfo{
-  date=\today, % Datum - je vhodné vepsat datum obhajoby (natvrdo), ne datum kompilace slajdů / Date - it is advisable to write the date of the defense (hard), not the date of the slide compilation        
-  title={Celý název prezentované práce\\vhodně rozdělený do řádků,\\jež jsou opticky vyvážené}, % Název prezentace / Presentation title (The whole title of the presented work suitably divided into lines that are optically balanced)
-  title.footer={Celý název prezentované práce případně vhodně zkrácený, aby se vešel do footeru}, % Název prezentace - text zobrazovaný vedle čísla slajdu / Presentation title - displayed next to the slide number (The full title of the presented work, it may be suitably abbreviated to fit the footer)
-  author.name={Jméno},  % Jméno autora / Author name
-  author.surname={Příjmení}, % Příjmení autora / Author surname
-  author.title.first={Bc.}, % Tituly před jménem autora (jsou-li jaké) / Author's titles before the name (if there are any)
-  supervisor.name={Jméno}, % Jméno vedoucího / Supervisor name
-  supervisor.surname={Příjmení}, % Příjmení vedoucího / Supervisor surname
-  supervisor.title.first={doc. Ing.}, % Tituly před jménem / Supervisor's titles before the name
-  supervisor.title.last={Ph.D.} % Tituly za jménem / Supervisor's titles after the name
-}
+\ifczech
+    \projectinfo{
+        date=\today, % Datum - je vhodné vepsat datum obhajoby (natvrdo), ne datum kompilace slajdů / Date - it is advisable to write the date of the defense (hard), not the date of the slide compilation        
+        title={Vývoj toolkitu pro red-teaming\\velkých jazykových modelů (LLM)}, % Název prezentace / Presentation title (The whole title of the presented work suitably divided into lines that are optically balanced)
+        title.footer={Vývoj toolkitu pro red-teaming velkých jazykových modelů (LLM)}, % Název prezentace - text zobrazovaný vedle čísla slajdu / Presentation title - displayed next to the slide number (The full title of the presented work, it may be suitably abbreviated to fit the footer)
+        author.name={Adam},  % Jméno autora / Author name
+        author.surname={Veselý}, % Příjmení autora / Author surname
+        author.title.first={}, % Tituly před jménem autora (jsou-li jaké) / Author's titles before the name (if there are any)
+        supervisor.name={Jakub}, % Jméno vedoucího / Supervisor name
+        supervisor.surname={Reš}, % Příjmení vedoucího / Supervisor surname
+        supervisor.title.first={Ing.}, % Tituly před jménem / Supervisor's titles before the name
+        supervisor.title.last={} % Tituly za jménem / Supervisor's titles after the name
+    }
+\else
+    \projectinfo{
+        date=\today, % Datum - je vhodné vepsat datum obhajoby (natvrdo), ne datum kompilace slajdů / Date - it is advisable to write the date of the defense (hard), not the date of the slide compilation        
+        title={Development of an LLM\\red-teaming toolkit}, % Název prezentace / Presentation title (The whole title of the presented work suitably divided into lines that are optically balanced)
+        title.footer={Development of an LLM red-teaming toolkit}, % Název prezentace - text zobrazovaný vedle čísla slajdu / Presentation title - displayed next to the slide number (The full title of the presented work, it may be suitably abbreviated to fit the footer)
+        author.name={Adam},  % Jméno autora / Author name
+        author.surname={Veselý}, % Příjmení autora / Author surname
+        author.title.first={}, % Tituly před jménem autora (jsou-li jaké) / Author's titles before the name (if there are any)
+        supervisor.name={Jakub}, % Jméno vedoucího / Supervisor name
+        supervisor.surname={Reš}, % Příjmení vedoucího / Supervisor surname
+        supervisor.title.first={Ing.}, % Tituly před jménem / Supervisor's titles before the name
+        supervisor.title.last={} % Tituly za jménem / Supervisor's titles after the name
+    }
+\fi
+%---------------------------------------------------------------------------
 
 % Struktura prezentace / Presentation structure
 %---------------------------------------------------------------------------
