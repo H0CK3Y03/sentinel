@@ -18,18 +18,17 @@
 % "Žijeme v době rozvoje mobilní výpočetní techniky, kdy každý má v kapse mobil" - je dokonale prázdné a hloupé sdělení, nic takového neříkejte, fakt to nikoho nezajímá.
 
 \begin{frame}
-  \frametitle{Motivace}
+  \frametitle{Motivácia}
   \begin{columns}
     \column{0.4\textwidth}
-    \begin{itemize}
-        \item \emph{Vstupy} či stav \emph{před}
-        \item Co mají být \emph{výstupy}
-        \item Odrážky \emph{žádné} nebo aspoň \emph{stručné}!
-        \item Žádoucí: Schéma se vstupy a výstupy
-    \end{itemize}
-     
+      \begin{itemize}
+          \item EU AI act 
+          \item PyRIT
+          \item MAD-MAX
+          \item garak
+      \end{itemize}
     \column{0.6\textwidth}
-    \includegraphics[width=\textwidth]{img/template-Teaser.pdf}
+      \includegraphics[width=\textwidth]{img/interest_in_ai.png}
   \end{columns}
 \end{frame}
 
@@ -55,19 +54,8 @@
 % Mluvte konkrétně: Jaké konkrétní vlastnosti má mít Vaše řešení, co konkrétně znamená "robustní", co konkrétně znamená "spolehlivé"?
 
 \begin{frame}
-  \frametitle{Cíle práce}
-  \begin{columns}
-    \column{0.4\textwidth}
-    \begin{itemize}
-        \item \emph{Vstup}
-        \item \emph{Výstup}
-        \item Žádoucí \emph{vlastnosti}
-        \item Využití \& aplikace
-    \end{itemize}
-     
-    \column{0.6\textwidth}
-        \includegraphics[width=\textwidth]{img/template-Goal.pdf}
-  \end{columns}
+  \frametitle{Návrh}
+    \includegraphics[width=\textwidth]{img/design.pdf}
 \end{frame}
 
 
@@ -89,21 +77,16 @@
 % - Titulek slajdu "Podstatné informace o řešení" je hodně generický. Ve skutečné Vaší prezentaci bude daleko lepší použít specifický titulek na každém ze slajdů, například: "Schéma neuronové sítě pro detekci frňáků", "Návrh nekonečného automatu", "Vytvořená datová sada" apod.
 
 \begin{frame}
-  \frametitle{Podstatné informace o řešení}
-  \centering\includegraphics[width=0.8\textwidth]{img/template-Schema.pdf}
-  \begin{equation}
-      \mathbf{a}_t = \sum_{i=1}^{L}\alpha_{t,i}\mathbf{f}_{t,i}^{*}
-  \end{equation}
-  kde $\alpha_{t,i}$ počítá \emph{softmax}:
-  \begin{align}
-      \alpha_{t,i} &= \frac{\exp(r_{t,i})}{\sum_{k=1}{L}\exp(r_{t,k})} 
-      \\
-      r_{t,i} &= W^a \tanh\left( W^h \mathbf{h}_{t-1} + W^f\mathbf{f}_{t,i}^{*} + b \right)
-  \end{align}
-\end{frame}
-
-\begin{frame}\frametitle{Podstatné informace o řešení}
-  \makebox[\linewidth]{\includegraphics[width=\paperwidth]{img/template-Screenshot.png}}
+  \frametitle{Plány do budúcna}
+  \centering
+      \begin{itemize}
+        \item Prototyp toolkitu \hspace{62pt} 4 týždne
+        \item Testovanie a debugovanie \hspace{12pt} 2 týždne
+        \item Úpravy toolkitu \hspace{69pt} 2 týždne
+        \item Grafické rozhranie \hspace{53pt} 2 týždne
+        \item Finalizácia \hspace{91pt} 2 týždne
+        \item Evaluácia \hspace{93pt} 2 týždne
+      \end{itemize}
 \end{frame}
 
 
@@ -114,26 +97,6 @@
 % Buďte konkrétní: místo "Aplikace je otestovaná", řekněte, kým a jak byla testována, jaké byly výsledky testů.
 % Místo "Úspěšnost detektoru je hodně dobrá" řekněte "Úspěšnost detektoru je 93 % mAP" nebo ještě radši ukažte tabulku se srovnáním oproti alternativním řešením.
 % Pokud vyhodnocení sestávalo ze dvou nebo tří částí, může být vhodné rozdělit obsah na dva či tři slajdy. Při prezentování je ovšem potřeba se pohlídat, aby čas věnovaný každému slajdu byl adekvátně krátký a nedošlo k přetažení času.
-
-\begin{frame}
-  \frametitle{Výsledky práce}
-  \begin{columns}
-  \column{0.4\textwidth}
-    \begin{itemize}
-      \item Co se \emph{podařilo}
-      \item Vytvořená datová sada: \emph{105\,k} záznamů
-      \item Úspěšnost: \emph{103\,\%}
-    \end{itemize}
-    
-  \column{0.6\textwidth}
-    \centering
-    \includegraphics[width=0.8\textwidth]{img/template-ResultsTable.pdf}
-    
-    \bigskip
-    \includegraphics[width=\textwidth]{img/template-ResultsPlot.pdf}
-    
-  \end{columns}
-\end{frame}
 
 
 %%%%%%%%                      05 - Poděkování                       %%%%%%%%
@@ -149,18 +112,8 @@
 %---------------------------------------------------------------------------
 
 \begin{frame}
-  \frametitle{Děkuji za pozornost!}
-  \centering
-  \makebox[\textwidth]{
-    \begin{tikzpicture}
-      \node (screenshot) 
-         {\includegraphics[width=0.6\paperwidth]{img/template-Screenshot.png}};
-      \node (schema) at (screenshot.south east) [xshift=5em] [yshift=2.5ex]
-         {\includegraphics[width=0.45\paperwidth]{img/template-Schema.pdf}};
-      \node (goal) at (screenshot.north east) [xshift=4em] [yshift=2ex]
-         {\includegraphics[width=0.5\paperwidth]{img/template-Goal.pdf}};
-    \end{tikzpicture}
-  }
+  \frametitle{Ďakujem za pozornosť!}
+  \includegraphics[width=\textwidth]{img/design.pdf}
 \end{frame}
 
 
@@ -186,12 +139,21 @@
 
 \appendix{}
 \begin{frame}
-  \frametitle{Otázky oponenta}
+  \frametitle{Zadanie}
   \begin{itemize}
-    \item Pokud je otázek více, lze udělat i~více slajdů.
-    \item Tento slajd nechť je příloha, která se nepočítá do celkového počtu slajdů.
-    \item Otázku je dobré sem přepsat \emph{verbatim}, ať není pochybnost, jestli nedošlo k nepřesnému parafrázování.
+    \item Prostudujte současný stav výzkumu v oblasti red-teamingu velkých jazykových modelů (LLM).
+    \item Proveďte rešerši existujících open-source nástrojů a frameworků pro red-teaming LLM.
+    \item Navrhněte architekturu vlastního red-teaming toolkitu pro LLM.
   \end{itemize}
-  \bigskip
-  \includegraphics[width=\textwidth]{img/template-ResultsPlot.pdf}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Referencie}
+    \begin{itemize}
+      \item Regulation (EU) 2024/1689 laying down harmonised rules on artificial intelligence (Artificial Intelligence Act) \url{https://eur-lex.europa.eu/eli/reg/2024/1689/oj}
+      \item Graph of interest in AI from 2020 to 2024\\(Google Trends --- artificial intelligence) \url{https://trends.google.com/trends/explore/}
+      \item PyRIT \url{https://arxiv.org/abs/2410.02828}
+      \item MAD-MAX \url{https://arxiv.org/abs/2503.06253}
+      \item garak \url{https://arxiv.org/abs/2406.11036}
+    \end{itemize}
 \end{frame}

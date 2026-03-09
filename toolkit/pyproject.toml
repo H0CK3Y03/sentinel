@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redteam"
+version = "0.1.0"
+description = "A modular, lightweight LLM red-teaming toolkit."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Adam Veselý"},
+]
+
+dependencies = [
+    "typer>=0.9",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+llama = [
+    "llama-cpp-python>=0.2",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1",
+]
+
+[project.scripts]
+redteam = "redteam.cli:main"
+
+[project.entry-points."redteam.adapters"]
+stub = "redteam.adapters.stub:StubAdapter"
+
+[project.entry-points."redteam.generators"]
+stub-template = "redteam.attacks.stub:StubAttackGenerator"
+
+[project.entry-points."redteam.judges"]
+heuristic = "redteam.judges.heuristic:HeuristicJudge"
+stub-judge = "redteam.judges.stub:StubJudge"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,56 @@
+Hello, my name is Adam Veselý, and I am presenting my bachelors thesis supervised by Ing. Jakub Reš.
+My thesis focuses on the design and implementation of an LLM red-teaming toolkit. So far I have designed a toolkit based on the shortcomings of existing ones.
+===== MOTIVATION ====
+Graph of interest in artificial intelligence -> AI usage skyrockets -> more and more smaller teams using AIs in projects
+The numbers represent relative interest in searches, with a value of 100 representing the highest possible popularity of the term.
+EU AI act is a regulation on AI, making red-teaming a mandatory practice -> a lot of smaller devs making AI apps -> need for a lightweight open-source red-teaming framework
+Existing frameworks exist, all have some down-sides:
+- Python Risk Identification Toolkit PyRIT(Microsoft): Enterprise-grade safety evaluation, doesn't easily support attack modules,
+     attacks are embedded in a scenario-driven pipeline (to add a attack we would need to define a scenario and implement orchestration logic)
+     this results in slower iteration and is over-kill for a small team
+- MAD-MAX(Schoepf): Used for validating attack concepts and producing academic results rather than safety evaluation.
+    Slower testing and expensive with API backends. Optimizes for experiments, not users.
+- Garak(Nvidia): lightweight vulnerability scanner, allowing only single-turn prompt attacks. Modern attacks are mostly multi-turn conversations.
+    Extensibility and modification is difficult as different modules are too intertwined (adding a new attack may mean rewriting the judge module).
+===== Design ====
+Experiment manifest (JSON or YAML files) is a specification/config file for configuring the target model(s), attack generator(s), the judging pipeline
+and thresholds, and execution parameters (seeds, batch sizes, rate limits, output paths).
+The orchestrator is central to the toolkit, it communicates with the attack module, requesting candidate adversarial prompts.
+The orchestrator then delivers them to the backend model module, which generates a response that is sent back to the orchestrator.
+The orchestrator then sends the model response to the judge module, where it is evaluated.
+The evaluation is sent to the orchestrator in the case of multi-turn attacks, where it can be forwarded to the attack module.
+Meanwhile everything is being logged in the JSONL format.
+The JSONL logs will be visualized in a graphical interface for better clarity.
+
+
+
+
+
+
+Hello, my name is Adam Veselý, and I am presenting my bachelor’s thesis supervised by Ing. Jakub Reš.
+
+My thesis focuses on the design of a lightweight red-teaming toolkit for large language models.
+
+Over the last few years, the use of large language models has grown rapidly.
+Today, they are not only used by large companies, but also by small teams and individual developers, often as part of real-world applications.
+
+At the same time, safety concerns are increasing.
+Large language models can generate harmful or unsafe content when prompted adversarially, and with the adoption of the EU AI Act, systematic risk assessment and red-teaming will become mandatory for high-risk AI systems starting in 2026.
+
+This creates a gap: red-teaming is becoming a requirement, but many existing tools are either too complex, too expensive, or not designed for smaller teams.
+
+Several frameworks already exist. PyRIT, developed by Microsoft, is well suited for broad risk assessment and policy compliance testing, but it is less focused on adversarial optimisation, multi-turn attacks, and controlled experimental comparison. MAD-MAX focuses on automated jailbreak research, but is computationally expensive and primarily aimed at academic experiments. garak is lightweight, but mainly supports single-turn attacks and is harder to extend for more complex scenarios.
+
+Based on these limitations, I designed a toolkit that focuses on reproducibility, modularity, and multi-turn red-teaming, while remaining lightweight enough to run on local hardware.
+
+The core of the design is an experiment-driven architecture. Each experiment is declared using a manifest that specifies the target model, attack generator, judging pipeline, and execution parameters. An orchestrator then coordinates the execution of attacks, model inference, and evaluation.
+
+The system is built from clearly separated components. Model adapters provide a uniform interface to different backends, including local models, API-based models, and custom research runtimes. Attack generators encapsulate adversarial strategies and support both single-turn and multi-turn attacks. Outputs are evaluated using a hybrid judging pipeline that combines heuristics, classifiers, and optional LLM-based judges.
+
+All events and results are recorded in an append-only JSONL log, which serves as a single source of truth for reproducibility, auditing, and later analysis. A lightweight reporting interface then allows inspection and comparison of experiment outcomes.
+
+In future work, the toolkit can be extended with more advanced automated attack generators, stronger judge calibration using human annotation, and broader support for agent-based or tool-using language models. Another important direction is large-scale empirical evaluation across multiple model families.
+
+In summary, this thesis proposes a lightweight, extensible, and reproducible red-teaming toolkit that complements existing frameworks by focusing on adversarial experimentation and practical usability for smaller teams.
+
+Thank you for your attention.

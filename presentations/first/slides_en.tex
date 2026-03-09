@@ -21,15 +21,14 @@
   \frametitle{Motivation}
   \begin{columns}
     \column{0.4\textwidth}
-    \begin{itemize}
-        \item \emph{Inputs} or state \emph{before}
-        \item What should be the~\emph{outputs}
-        \item \emph{No} or \emph{brief} bullets!
-        \item Desirable: A scheme with inputs and outputs
-    \end{itemize}
-     
+      \begin{itemize}
+          \item EU AI act 
+          \item PyRIT
+          \item MAD-MAX
+          \item garak
+      \end{itemize}
     \column{0.6\textwidth}
-    \includegraphics[width=\textwidth]{img/template-Teaser.pdf}
+      \includegraphics[width=\textwidth]{img/interest_in_ai.png}
   \end{columns}
 \end{frame}
 
@@ -55,19 +54,8 @@
 % Be specific: What specific features should your solution have, what "robust" means specifically, what "reliable" means precisely?
 
 \begin{frame}
-  \frametitle{Objectives of the Thesis}
-  \begin{columns}
-    \column{0.4\textwidth}
-    \begin{itemize}
-        \item \emph{Input}
-        \item \emph{Output}
-        \item Desirable \emph{properties}
-        \item Uses \& applications
-    \end{itemize}
-     
-    \column{0.6\textwidth}
-        \includegraphics[width=\textwidth]{img/template-Goal.pdf}
-  \end{columns}
+  \frametitle{Design}
+    \includegraphics[width=\textwidth]{img/design.pdf}
 \end{frame}
 
 
@@ -89,21 +77,16 @@
 % - The title of the slide, "Essential Information About the Solution", is very generic. In your actual slides, it would be much better to use a specific title on each of the slides, for example, "Neural Network Scheme for Big Nose Detection", "Design of an Infinite Automata", "Collected Dataset", etc.
 
 \begin{frame}
-  \frametitle{Essential Information About the Solution}
-  \centering\includegraphics[width=0.8\textwidth]{img/template-Schema.pdf}
-  \begin{equation}
-      \mathbf{a}_t = \sum_{i=1}^{L}\alpha_{t,i}\mathbf{f}_{t,i}^{*}
-  \end{equation}
-  where $\alpha_{t,i}$ computes the \emph{softmax}:
-  \begin{align}
-      \alpha_{t,i} &= \frac{\exp(r_{t,i})}{\sum_{k=1}{L}\exp(r_{t,k})} 
-      \\
-      r_{t,i} &= W^a \tanh\left( W^h \mathbf{h}_{t-1} + W^f\mathbf{f}_{t,i}^{*} + b \right)
-  \end{align}
-\end{frame}
-
-\begin{frame}\frametitle{Essential Information About the Solution}
-  \makebox[\linewidth]{\includegraphics[width=\paperwidth]{img/template-Screenshot.png}}
+  \frametitle{Future Plans}
+  \centering
+      \begin{itemize}
+        \item Toolkit prototype \hspace{50pt} 4 weeks
+        \item Testing and debugging \hspace{18pt} 2 weeks
+        \item Toolkit adjustments \hspace{40pt} 2 weeks
+        \item Graphical interface \hspace{35pt} 2 weeks
+        \item Finalization \hspace{77pt} 2 weeks
+        \item Evaluation \hspace{80pt} 2 weeks
+      \end{itemize}
 \end{frame}
 
 
@@ -114,26 +97,6 @@
 % Be specific: instead of "The application has been tested", say by whom and how it has been tested, and what the test results were.
 % Instead of "The detector success rate is very good", say "The detector success rate is 93% mAP", or even better, show a table with a comparison against alternative solutions.
 % If the evaluation consisted of two or three parts, splitting the content into two or three slides may be appropriate. When presenting, however, care should be taken to ensure that the time devoted to each slide is adequately short and that there is no time overrun.
-
-\begin{frame}
-  \frametitle{Experimental Results}
-  \begin{columns}
-  \column{0.4\textwidth}
-    \begin{itemize}
-      \item What has been \emph{done}
-      \item Created dataset: \emph{105\,thousand} records
-      \item Success Rate: \emph{103\,\%}
-    \end{itemize}
-    
-  \column{0.6\textwidth}
-    \centering
-    \includegraphics[width=0.8\textwidth]{img/template-ResultsTable.pdf}
-    
-    \bigskip
-    \includegraphics[width=\textwidth]{img/template-ResultsPlot.pdf}
-    
-  \end{columns}
-\end{frame}
 
 
 %%%%%%%%                        05 - Thanks                         %%%%%%%%
@@ -147,20 +110,9 @@
 
 % HEROUT, Adam. Prezentování. Herout.net: Poznámky učitele, kouče, čtenáře. [online]. [cit. 2021-9-15]. Available at: https://www.herout.net/blog/category/prezentovani/
 %---------------------------------------------------------------------------
-
 \begin{frame}
   \frametitle{Thank You for Your Attention!}
-  \centering
-  \makebox[\textwidth]{
-    \begin{tikzpicture}
-      \node (screenshot) 
-         {\includegraphics[width=0.6\paperwidth]{img/template-Screenshot.png}};
-      \node (schema) at (screenshot.south east) [xshift=5em] [yshift=2.5ex]
-         {\includegraphics[width=0.45\paperwidth]{img/template-Schema.pdf}};
-      \node (goal) at (screenshot.north east) [xshift=4em] [yshift=2ex]
-         {\includegraphics[width=0.5\paperwidth]{img/template-Goal.pdf}};
-    \end{tikzpicture}
-  }
+  \includegraphics[width=\textwidth]{img/design.pdf}
 \end{frame}
 
 
@@ -186,12 +138,21 @@
 
 \appendix{}
 \begin{frame}
-  \frametitle{Opponent's Questions}
+  \frametitle{Assignment}
   \begin{itemize}
-    \item If there are multiple questions, more slides can be made.
-    \item This slide should be an attachment that does not count towards the total number of slides.
-    \item It is a good idea to transcribe the question here \emph{verbatim}, so that there is no doubt that there is no inaccurate paraphrasing.
+    \item Study the current state of research in the field of red-teaming large language models (LLM).
+    \item Conduct a review of existing open-source tools and frameworks for red-teaming LLM.
+    \item Design the architecture of your own red-teaming toolkit for LLM.
   \end{itemize}
-  \bigskip
-  \includegraphics[width=\textwidth]{img/template-ResultsPlot.pdf}
+\end{frame}
+
+\begin{frame}
+  \frametitle{References}
+    \begin{itemize}
+      \item Regulation (EU) 2024/1689 laying down harmonised rules on artificial intelligence (Artificial Intelligence Act) \url{https://eur-lex.europa.eu/eli/reg/2024/1689/oj}
+      \item Graph of interest in AI from 2020 to 2024\\(Google Trends --- artificial intelligence) \url{https://trends.google.com/trends/explore/}
+      \item PyRIT \url{https://arxiv.org/abs/2410.02828}
+      \item MAD-MAX \url{https://arxiv.org/abs/2503.06253}
+      \item garak \url{https://arxiv.org/abs/2406.11036}
+    \end{itemize}
 \end{frame}

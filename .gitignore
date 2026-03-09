@@ -10,6 +10,18 @@
 *.lof
 *.out
 *.ptc
+*.nav
+*.snm
 latexmk_console.txt
 latexmk_out.txt
 deleted/
+
+# Python / toolkit
+__pycache__/
+*.egg-info/
+*.egg
+.venv/
+*.pyc
+dist/
+build/
+.pytest_cache/

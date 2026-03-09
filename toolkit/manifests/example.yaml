@@ -1,0 +1,40 @@
+# Experiment manifest — example / stub configuration
+# All fields are documented in the thesis (Chapter 4, Section 4.4).
+
+experiment_id: "example-001"
+author: "Adam Veselý"
+description: >
+  Baseline experiment using the stub adapter and built-in template attack
+  generator. Demonstrates the full pipeline: generation → inference →
+  hybrid judging → JSONL logging.
+
+# -- Model adapter -----------------------------------------------------------
+model:
+  adapter: stub                # built-in mock adapter (no real LLM)
+  model_id: stub-v1
+  config:
+    latency_ms: 50             # simulated response latency
+
+# -- Attack generator --------------------------------------------------------
+generator:
+  name: stub-template          # built-in template × goal cross-product
+  config:
+    seed: 42
+    # templates: [...]         # override built-in templates (optional)
+    # goals: [...]             # override built-in goals (optional)
+
+# -- Judge pipeline (ordered) -----------------------------------------------
+judges:
+  - name: heuristic            # fast regex / keyword layer
+    config:
+      refusal_threshold: 1
+      compliance_threshold: 1
+
+# -- Execution parameters ---------------------------------------------------
+seed: 42
+batch_size: 8
+num_batches: 5                 # total prompts = batch_size × num_batches
+rate_limit_rps: 0              # 0 = no rate limiting
+
+# -- Output ------------------------------------------------------------------
+output: "logs/example-001.jsonl"
