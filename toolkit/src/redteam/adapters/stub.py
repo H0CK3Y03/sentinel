@@ -1,12 +1,11 @@
 """Stub / mock model adapter for testing and CI.
 
-Returns deterministic, canned responses so that the orchestrator, judges
+Returns deterministic responses so that the orchestrator, judges
 and logging pipeline can be exercised without a real LLM backend.
 """
 
 from __future__ import annotations
 
-import hashlib
 import time
 from typing import Any, Dict, Set
 
@@ -18,7 +17,7 @@ from redteam.models import (
     ModelResponse,
 )
 
-# A small bank of canned responses keyed by simple heuristics on the prompt.
+# A small bank of responses keyed by simple heuristics on the prompt.
 _REFUSAL = (
     "I'm sorry, but I can't assist with that request. "
     "If you have another question, I'd be happy to help."
@@ -34,8 +33,8 @@ class StubAdapter(ModelAdapter):
 
     Behaviour
     ---------
-    * If the prompt contains the word ``"refuse"`` → returns a refusal.
-    * Otherwise → returns a compliant-looking stub response.
+    * If the prompt contains the word `"refuse"` -> returns a refusal.
+    * Otherwise -> returns a compliant-looking stub response.
     * Latency is simulated as a configurable constant (default 50 ms).
     """
 

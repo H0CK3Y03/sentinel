@@ -2,7 +2,7 @@
 
 Manifests are small YAML (preferred) or JSON files that declaratively
 describe every parameter of a red-teaming experiment.  The loader
-validates required fields and returns a typed ``Manifest`` object that
+validates required fields and returns a typed `Manifest` object that
 the orchestrator consumes.
 """
 
@@ -12,7 +12,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 try:
     import yaml  # type: ignore[import-untyped]
@@ -80,7 +80,7 @@ class Manifest:
 
 
 def _parse_raw(data: Dict[str, Any]) -> Manifest:
-    """Build a ``Manifest`` from a raw dict."""
+    """Build a `Manifest` from a raw dict."""
     model_raw = data.get("model", {})
     gen_raw = data.get("generator", {})
     judge_list = data.get("judges", [{}])

@@ -1,7 +1,7 @@
 """Abstract base class for attack generators.
 
 Every attack module (template, search-based, LLM-driven …) must subclass
-``AttackGenerator`` and implement the required methods.
+`AttackGenerator` and implement the required methods.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class AttackGenerator(ABC):
         """Accept declarative configuration from the experiment manifest.
 
         Implementations should store seeds, constraints, and generation
-        parameters, and set ``self._configured = True``.
+        parameters, and set `self._configured = True`.
         """
 
     @abstractmethod

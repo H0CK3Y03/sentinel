@@ -1,17 +1,16 @@
 """Append-only JSONL log store.
 
 The logger writes one JSON object per line to a file, creating a canonical,
-streaming-friendly, language-agnostic experiment log that can be consumed by
+streaming-friendly experiment log that can be consumed by
 offline analysis scripts or the reporting UI.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from redteam.models import EventType, LogEvent, ModelResponse, PromptCandidate, Verdict
 
@@ -40,7 +39,7 @@ class JsonlLogger:
     # -- high-level helpers --------------------------------------------------
 
     def log_event(self, event: LogEvent) -> None:
-        """Write an arbitrary ``LogEvent`` to the log file."""
+        """Write an arbitrary `LogEvent` to the log file."""
         self._write(event.to_dict())
 
     def log_experiment_start(
@@ -76,7 +75,7 @@ class JsonlLogger:
         response: ModelResponse,
         verdicts: list[Verdict],
     ) -> None:
-        """Log a complete trial: prompt → response → verdicts."""
+        """Log a complete trial: prompt -> response -> verdicts."""
         self._write(
             LogEvent(
                 event_type=EventType.TRIAL_RESULT.value,

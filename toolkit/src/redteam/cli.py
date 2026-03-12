@@ -1,6 +1,6 @@
 """Command-line interface for the red-teaming toolkit.
 
-Built with Typer so that the toolkit can be invoked as::
+Built with Typer so that the toolkit can be invoked as:
 
     redteam run manifests/example.yaml
     redteam validate manifests/example.yaml
@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
-from pathlib import Path
 
 import typer
 
@@ -57,7 +55,7 @@ def run(
     typer.echo(f"  adapter   : {manifest.model.adapter} ({manifest.model.model_id})")
     typer.echo(f"  generator : {manifest.generator.name}")
     typer.echo(f"  judges    : {[j.name for j in manifest.judges]}")
-    typer.echo(f"  batches   : {manifest.num_batches} × {manifest.batch_size}")
+    typer.echo(f"  batches   : {manifest.num_batches} * {manifest.batch_size}")
     typer.echo(f"  output    : {manifest.output}")
     typer.echo()
 

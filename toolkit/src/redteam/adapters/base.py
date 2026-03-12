@@ -1,13 +1,13 @@
 """Abstract base class for model adapters.
 
 Every concrete adapter (local llama.cpp, API, mock, custom) must subclass
-``ModelAdapter`` and implement the three required methods.
+`ModelAdapter` and implement the three required methods.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, Set
 
 from redteam.models import (
     CostInfo,

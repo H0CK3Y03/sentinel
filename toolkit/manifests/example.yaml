@@ -1,12 +1,10 @@
-# Experiment manifest — example / stub configuration
-# All fields are documented in the thesis (Chapter 4, Section 4.4).
+# Experiment manifest - example / stub configuration
 
 experiment_id: "example-001"
 author: "Adam Veselý"
 description: >
-  Baseline experiment using the stub adapter and built-in template attack
-  generator. Demonstrates the full pipeline: generation → inference →
-  hybrid judging → JSONL logging.
+  Baseline experiment using the stub adapter and built-in template attack generator.
+  Demonstrates the full pipeline: generation -> inference -> hybrid judging -> JSONL logging.
 
 # -- Model adapter -----------------------------------------------------------
 model:
@@ -17,7 +15,7 @@ model:
 
 # -- Attack generator --------------------------------------------------------
 generator:
-  name: stub-template          # built-in template × goal cross-product
+  name: stub-template          # built-in template * goal cross-product
   config:
     seed: 42
     # templates: [...]         # override built-in templates (optional)
@@ -33,7 +31,7 @@ judges:
 # -- Execution parameters ---------------------------------------------------
 seed: 42
 batch_size: 8
-num_batches: 5                 # total prompts = batch_size × num_batches
+num_batches: 5                 # total prompts = batch_size * num_batches
 rate_limit_rps: 0              # 0 = no rate limiting
 
 # -- Output ------------------------------------------------------------------

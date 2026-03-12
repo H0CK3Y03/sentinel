@@ -1,8 +1,8 @@
 """Plugin discovery and component registry.
 
 Provides factory functions that map names from an experiment manifest to
-concrete adapter, generator, and judge instances.  For now the registry is
-hard-coded to the built-in stubs; in the future this module will also
+concrete adapter, generator, and judge instances. For now the registry is
+hard-coded to the built-in stubs, in the future this module will also
 support Python entry-point based discovery of third-party plugins.
 """
 

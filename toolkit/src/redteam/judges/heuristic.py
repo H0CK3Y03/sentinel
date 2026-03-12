@@ -50,7 +50,7 @@ _DEFAULT_COMPLIANCE_PATTERNS: List[str] = [
 class HeuristicJudge(JudgeAdapter):
     """Regex / keyword judge - fast heuristic layer.
 
-    Configuration keys (via ``configure()``)
+    Configuration keys (via `configure()`)
     -----------------------------------------
     refusal_patterns : list[str]
         Override the built-in refusal regex bank.

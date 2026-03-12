@@ -1,7 +1,7 @@
 """Abstract base class for judge adapters.
 
 Each judge receives a model response together with the original prompt and
-returns a structured ``Verdict``.
+returns a structured `Verdict`.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Stub LLM-based judge - placeholder for future integration.
 
-This judge always returns an ``inconclusive`` verdict and serves as an
+This judge always returns an `inconclusive` verdict and serves as an
 adapter-style placeholder for an LLM-based evaluation backend (e.g.,
 llama.cpp judge, OpenAI moderation API, etc.).
 """

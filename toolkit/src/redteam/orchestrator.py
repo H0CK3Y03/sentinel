@@ -1,10 +1,9 @@
 """Orchestrator - central experiment runner.
 
-Consumes a ``Manifest``, wires up the selected adapter, attack generator,
+Consumes a `Manifest`, wires up the selected adapter, attack generator,
 and judge pipeline, then executes the experiment loop:
 
-    manifest → generator.next() → adapter.generate() → judges.evaluate()
-                                                       → logger.log_trial()
+    manifest -> generator.next() -> adapter.generate() -> judges.evaluate() -> logger.log_trial()
 
 All provenance (manifest snapshot, prompts, raw responses, verdicts) is
 written to the JSONL log store for reproducibility and later analysis.
