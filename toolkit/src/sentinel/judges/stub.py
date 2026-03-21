@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from redteam.judges.base import JudgeAdapter
-from redteam.models import (
+from sentinel.judges.base import JudgeAdapter
+from sentinel.models import (
     HealthStatus,
     JudgeType,
     ModelResponse,

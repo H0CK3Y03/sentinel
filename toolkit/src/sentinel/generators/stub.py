@@ -10,8 +10,8 @@ from __future__ import annotations
 import random
 from typing import Any, Dict, List
 
-from redteam.attacks.base import AttackGenerator
-from redteam.models import PromptCandidate
+from sentinel.generators.base import AttackGenerator
+from sentinel.models import PromptCandidate
 
 
 # -- built-in template bank --------------------------------------------------

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
-from redteam.models import EventType, LogEvent, ModelResponse, PromptCandidate, Verdict
+from sentinel.models import EventType, LogEvent, ModelResponse, PromptCandidate, Verdict
 
 
 class JsonlLogger:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from redteam.manifest import load_manifest, Manifest
+from sentinel.manifest import load_manifest, Manifest
 
 
 def test_load_yaml(tmp_path: Path) -> None:

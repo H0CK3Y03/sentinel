@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from redteam.models import InferenceMode, ModelResponse, PromptCandidate
+from sentinel.models import InferenceMode, ModelResponse, PromptCandidate
 
 
 class AttackGenerator(ABC):

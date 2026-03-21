@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Type
 
-from redteam.adapters.base import ModelAdapter
-from redteam.adapters.stub import StubAdapter
-from redteam.attacks.base import AttackGenerator
-from redteam.attacks.stub import StubAttackGenerator
-from redteam.judges.base import JudgeAdapter
-from redteam.judges.heuristic import HeuristicJudge
-from redteam.judges.stub import StubJudge
+from sentinel.model_adapters.base import ModelAdapter
+from sentinel.model_adapters.stub import StubAdapter
+from sentinel.generators.base import AttackGenerator
+from sentinel.generators.stub import StubAttackGenerator
+from sentinel.judges.base import JudgeAdapter
+from sentinel.judges.heuristic import HeuristicJudge
+from sentinel.judges.stub import StubJudge
 
 # ---------------------------------------------------------------------------
 # Built-in registries (name → class)

@@ -57,6 +57,7 @@ class Manifest:
     seed: int = 42
     batch_size: int = 8
     num_batches: int = 1
+    max_concurrency: int = 1
     rate_limit_rps: float = 0.0  # 0 = unlimited
     output: str = "logs/experiment.jsonl"
 
@@ -74,6 +75,7 @@ class Manifest:
             "seed": self.seed,
             "batch_size": self.batch_size,
             "num_batches": self.num_batches,
+            "max_concurrency": self.max_concurrency,
             "rate_limit_rps": self.rate_limit_rps,
             "output": self.output,
         }
@@ -109,6 +111,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         seed=int(data.get("seed", 42)),
         batch_size=int(data.get("batch_size", 8)),
         num_batches=int(data.get("num_batches", 1)),
+        max_concurrency=max(1, int(data.get("max_concurrency", 1))),
         rate_limit_rps=float(data.get("rate_limit_rps", 0)),
         output=data.get("output", "logs/experiment.jsonl"),
         raw=data,

@@ -2,9 +2,9 @@
 
 Built with Typer so that the toolkit can be invoked as:
 
-    redteam run manifests/example.yaml
-    redteam validate manifests/example.yaml
-    redteam list-plugins
+    sentinel run manifests/example.yaml
+    sentinel validate manifests/example.yaml
+    sentinel list-plugins
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ import json
 
 import typer
 
-from redteam import __version__
-from redteam.manifest import load_manifest
-from redteam.orchestrator import Orchestrator
-from redteam.plugins import (
+from sentinel import __version__
+from sentinel.manifest import load_manifest
+from sentinel.orchestrator import Orchestrator
+from sentinel.plugins import (
     _ADAPTER_REGISTRY,
     _GENERATOR_REGISTRY,
     _JUDGE_REGISTRY,
 )
 
 app = typer.Typer(
-    name="redteam",
+    name="sentinel",
     help="LLM Red-Teaming Toolkit - run reproducible adversarial experiments.",
     add_completion=False,
 )
@@ -51,7 +51,7 @@ def run(
         typer.echo(json.dumps(manifest.to_dict(), indent=2))
         return
 
-    typer.echo(f"[redteam] Starting experiment {manifest.experiment_id}")
+    typer.echo(f"[sentinel] Starting experiment {manifest.experiment_id}")
     typer.echo(f"  adapter   : {manifest.model.adapter} ({manifest.model.model_id})")
     typer.echo(f"  generator : {manifest.generator.name}")
     typer.echo(f"  judges    : {[j.name for j in manifest.judges]}")
@@ -62,7 +62,7 @@ def run(
     orch = Orchestrator(manifest)
     summary = asyncio.run(orch.run())
 
-    typer.echo("[redteam] Experiment complete.")
+    typer.echo("[sentinel] Experiment complete.")
     typer.echo(f"  Total prompts    : {summary.total_prompts}")
     typer.echo(f"  Refusals         : {summary.total_refusals}")
     typer.echo(f"  Compliances      : {summary.total_compliances}")
@@ -105,7 +105,7 @@ def list_plugins() -> None:
 @app.command()
 def version() -> None:
     """Print the toolkit version."""
-    typer.echo(f"redteam {__version__}")
+    typer.echo(f"sentinel {__version__}")
 
 
 # ---------------------------------------------------------------------------

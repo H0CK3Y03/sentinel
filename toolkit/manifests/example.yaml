@@ -32,6 +32,7 @@ judges:
 seed: 42
 batch_size: 8
 num_batches: 5                 # total prompts = batch_size * num_batches
+max_concurrency: 4             # bounded parallel execution within each batch
 rate_limit_rps: 0              # 0 = no rate limiting
 
 # -- Output ------------------------------------------------------------------

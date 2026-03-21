@@ -687,6 +687,7 @@ A manifest is a small YAML/JSON file describing:
   \item \texttt{generator} selection and parameters
   \item \texttt{judge} pipeline and thresholds
   \item \texttt{seeds}, \texttt{batch\_sizes}, \texttt{rate\_limits}
+  \item \texttt{max\_concurrency} for bounded parallel execution
   \item \texttt{output} path / logging destination
 \end{itemize}
 
@@ -782,6 +783,11 @@ The adapter pattern ensures that backends can be exchanged without modifying orc
 For improved query performance in the user interface, an optional lightweight index (e.g., SQLite or FAISS) may be derived from the canonical JSONL logs.
 Log rotation and retention policies are considered as operational concerns for long-running experiments.
 
+\paragraph{Parallel execution.}
+The orchestrator also supports bounded parallel execution of prompts within a batch.
+This allows the toolkit to increase throughput on backends that can process multiple requests concurrently, while still preserving the manifest-driven experiment structure and deterministic logging order.
+The concurrency limit remains configurable so that the same implementation can be used both for local development on modest hardware and for higher-throughput evaluation runs.
+
 \paragraph{Operational considerations.}
 The operational design of the toolkit is guided by the assumption that it will primarily be used in resource-constrained environments, such as personal workstations or small research servers.
 Consequently, expected CPU and memory requirements are documented for representative model sizes, and the use of smaller or quantised models is recommended during development and exploratory experimentation.
@@ -796,6 +802,18 @@ The orchestrator may therefore expose lightweight health checks and runtime metr
 These signals support debugging, performance evaluation, and failure analysis during both development and experimental use, while remaining intentionally simple to avoid additional operational complexity.
 
 \chapter{Implementation}\label{ch:implementation}
+
+\section{Parallel Batch Execution}\label{sec:parallel-batch-execution}
+
+The implementation follows the design goal of bounded parallel execution by processing each batch of prompts concurrently.
+For every batch, the orchestrator creates a limited number of asynchronous prompt tasks, each of which performs model inference and local judging independently of the other prompts in the same batch.
+This keeps the implementation compact while allowing the toolkit to use available backend capacity more effectively than a purely sequential loop.
+
+Parallel execution is intentionally constrained by a manifest parameter so that the user can trade throughput against resource consumption.
+When the configured concurrency is set to one, the runtime behaves exactly like the sequential implementation.
+When the limit is increased, the orchestrator keeps the logical order of the experiment intact by recording results after all prompt tasks in the batch have completed, then updating adaptive generators and appending the JSONL records in the original prompt order.
+
+This design is particularly useful for local testing and for backends that can serve multiple requests at once, while still remaining predictable enough for reproducible red-teaming experiments.
 
 \chapter{Evaluation}\label{ch:evaluation}
 

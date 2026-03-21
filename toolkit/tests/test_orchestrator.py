@@ -8,8 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from redteam.manifest import Manifest, ManifestModel, ManifestGenerator, ManifestJudge
-from redteam.orchestrator import Orchestrator
+from sentinel.model_adapters.base import ModelAdapter
+from sentinel.manifest import Manifest, ManifestModel, ManifestGenerator, ManifestJudge
+from sentinel.models import HealthStatus, ModelResponse
+from sentinel.orchestrator import Orchestrator
+from sentinel.plugins import register_adapter
 
 
 @pytest.fixture
@@ -59,3 +62,47 @@ async def test_asr_calculation(default_manifest: Manifest) -> None:
     orch = Orchestrator(default_manifest)
     summary = await orch.run()
     assert 0.0 <= summary.asr <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_batch_parallelism(tmp_path: Path) -> None:
+    """Prompts in a batch should execute concurrently when configured."""
+
+    class ParallelAdapter(ModelAdapter):
+        def __init__(self, model_id: str = "parallel-test", config: dict | None = None) -> None:
+            super().__init__(model_id=model_id, config=config)
+            self.in_flight = 0
+            self.max_in_flight = 0
+
+        async def generate(self, prompt: str, config: dict | None = None) -> ModelResponse:
+            self.in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self.in_flight)
+            await asyncio.sleep(0.05)
+            self.in_flight -= 1
+            return ModelResponse(text="Sure! Here is a response.", model_id=self.model_id)
+
+        async def health_check(self) -> HealthStatus:
+            return HealthStatus.OK
+
+    register_adapter("parallel-test", ParallelAdapter)
+
+    manifest = Manifest(
+        experiment_id="parallel-001",
+        author="test",
+        description="parallel execution test",
+        model=ManifestModel(adapter="parallel-test", model_id="parallel-test"),
+        generator=ManifestGenerator(name="stub-template", config={"seed": 1}),
+        judges=[ManifestJudge(name="heuristic")],
+        seed=1,
+        batch_size=4,
+        num_batches=1,
+        max_concurrency=4,
+        output=str(tmp_path / "parallel.jsonl"),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 4
+    assert summary.total_errors == 0
+    assert orch.adapter.max_in_flight > 1

@@ -10,8 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Pattern
 
-from redteam.judges.base import JudgeAdapter
-from redteam.models import (
+from sentinel.judges.base import JudgeAdapter
+from sentinel.models import (
     HealthStatus,
     JudgeType,
     ModelResponse,

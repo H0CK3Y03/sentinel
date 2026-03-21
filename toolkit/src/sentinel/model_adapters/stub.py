@@ -9,8 +9,8 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Set
 
-from redteam.adapters.base import ModelAdapter
-from redteam.models import (
+from sentinel.model_adapters.base import ModelAdapter
+from sentinel.models import (
     CostInfo,
     HealthStatus,
     InferenceMode,

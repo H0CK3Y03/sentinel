@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from redteam.judges.heuristic import HeuristicJudge
-from redteam.models import ModelResponse, PromptCandidate
+from sentinel.judges.heuristic import HeuristicJudge
+from sentinel.models import ModelResponse, PromptCandidate
 
 
 def _make(text: str) -> tuple[ModelResponse, PromptCandidate]:

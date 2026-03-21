@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "redteam"
+name = "sentinel"
 version = "0.1.0"
 description = "A modular, lightweight LLM red-teaming toolkit."
 readme = "README.md"
@@ -29,17 +29,17 @@ dev = [
 ]
 
 [project.scripts]
-redteam = "redteam.cli:main"
+sentinel = "sentinel.cli:main"
 
-[project.entry-points."redteam.adapters"]
-stub = "redteam.adapters.stub:StubAdapter"
+[project.entry-points."sentinel.model_adapters"]
+stub = "sentinel.model_adapters.stub:StubAdapter"
 
-[project.entry-points."redteam.generators"]
-stub-template = "redteam.attacks.stub:StubAttackGenerator"
+[project.entry-points."sentinel.generators"]
+stub-template = "sentinel.generators.stub:StubAttackGenerator"
 
-[project.entry-points."redteam.judges"]
-heuristic = "redteam.judges.heuristic:HeuristicJudge"
-stub-judge = "redteam.judges.stub:StubJudge"
+[project.entry-points."sentinel.judges"]
+heuristic = "sentinel.judges.heuristic:HeuristicJudge"
+stub-judge = "sentinel.judges.stub:StubJudge"
 
 [tool.setuptools.packages.find]
 where = ["src"]

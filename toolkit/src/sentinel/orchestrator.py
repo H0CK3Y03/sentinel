@@ -16,19 +16,19 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from redteam.adapters.base import ModelAdapter
-from redteam.attacks.base import AttackGenerator
-from redteam.judges.base import JudgeAdapter
-from redteam.logger import JsonlLogger
-from redteam.manifest import Manifest
-from redteam.models import (
+from sentinel.model_adapters.base import ModelAdapter
+from sentinel.generators.base import AttackGenerator
+from sentinel.judges.base import JudgeAdapter
+from sentinel.logger import JsonlLogger
+from sentinel.manifest import Manifest
+from sentinel.models import (
     EventType,
     LogEvent,
     ModelResponse,
     PromptCandidate,
     Verdict,
 )
-from redteam.plugins import create_adapter, create_generator, create_judge
+from sentinel.plugins import create_adapter, create_generator, create_judge
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +67,38 @@ class ExperimentSummary:
         }
 
 
+@dataclass
+class _TrialOutcome:
+    """Internal result bundle for a single prompt execution."""
+
+    prompt: PromptCandidate
+    response: ModelResponse | None = None
+    verdicts: List[Verdict] = field(default_factory=list)
+    error: Exception | None = None
+
+
+class _AsyncRateLimiter:
+    """Serialise request starts to respect a maximum prompts-per-second budget."""
+
+    def __init__(self, rate_limit_rps: float) -> None:
+        self._interval = 0.0 if rate_limit_rps <= 0 else 1.0 / rate_limit_rps
+        self._lock = asyncio.Lock()
+        self._next_allowed_at = 0.0
+
+    async def acquire(self) -> None:
+        if self._interval <= 0:
+            return
+
+        loop = asyncio.get_running_loop()
+        async with self._lock:
+            now = loop.time()
+            if self._next_allowed_at > now:
+                await asyncio.sleep(self._next_allowed_at - now)
+                now = loop.time()
+
+            self._next_allowed_at = max(self._next_allowed_at, now) + self._interval
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -95,6 +127,28 @@ class Orchestrator:
         ]
         self.logger = JsonlLogger(manifest.output)
 
+    async def _execute_prompt(
+        self,
+        prompt: PromptCandidate,
+        experiment_id: str,
+        rate_limiter: _AsyncRateLimiter,
+    ) -> _TrialOutcome:
+        await rate_limiter.acquire()
+
+        try:
+            response = await self.adapter.generate(prompt.text)
+            response.prompt_id = prompt.prompt_id
+
+            verdicts: List[Verdict] = []
+            for judge in self.judges:
+                verdict = judge.evaluate(response, prompt)
+                verdict.experiment_id = experiment_id
+                verdicts.append(verdict)
+
+            return _TrialOutcome(prompt=prompt, response=response, verdicts=verdicts)
+        except Exception as exc:
+            return _TrialOutcome(prompt=prompt, error=exc)
+
     # -- public entry-point --------------------------------------------------
 
     async def run(self) -> ExperimentSummary:
@@ -122,48 +176,49 @@ class Orchestrator:
         )
 
         # Main loop: batches of prompts
+        semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
+        rate_limiter = _AsyncRateLimiter(m.rate_limit_rps)
         for batch_idx in range(m.num_batches):
             prompts = self.generator.next(batch_size=m.batch_size)
-            for prompt in prompts:
+            async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
+                async with semaphore:
+                    return await self._execute_prompt(prompt, m.experiment_id, rate_limiter)
+
+            outcomes = await asyncio.gather(
+                *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
+            )
+
+            for outcome in outcomes:
                 summary.total_prompts += 1
-                try:
-                    response = await self.adapter.generate(prompt.text)
-                    response.prompt_id = prompt.prompt_id
-
-                    # Run judge pipeline
-                    verdicts: List[Verdict] = []
-                    for judge in self.judges:
-                        v = judge.evaluate(response, prompt)
-                        v.experiment_id = m.experiment_id
-                        verdicts.append(v)
-
-                    # Classify result from first judge for summary stats
-                    primary = verdicts[0] if verdicts else None
-                    if primary:
-                        if "refusal" in primary.labels:
-                            summary.total_refusals += 1
-                        elif "compliance" in primary.labels:
-                            summary.total_compliances += 1
-                        else:
-                            summary.total_inconclusive += 1
-
-                    # Allow adaptive generators to observe the response
-                    self.generator.update(prompt, response)
-
-                    # Persist
-                    self.logger.log_trial(m.experiment_id, prompt, response, verdicts)
-
-                except Exception as exc:
+                if outcome.error is not None or outcome.response is None:
                     summary.total_errors += 1
                     self.logger.log_error(
                         m.experiment_id,
-                        message=str(exc),
-                        details={"prompt_id": prompt.prompt_id},
+                        message=str(outcome.error) if outcome.error else "Unknown execution error",
+                        details={"prompt_id": outcome.prompt.prompt_id},
                     )
+                    continue
 
-                # Rate limiting
-                if m.rate_limit_rps > 0:
-                    await asyncio.sleep(1.0 / m.rate_limit_rps)
+                # Classify result from first judge for summary stats
+                primary = outcome.verdicts[0] if outcome.verdicts else None
+                if primary:
+                    if "refusal" in primary.labels:
+                        summary.total_refusals += 1
+                    elif "compliance" in primary.labels:
+                        summary.total_compliances += 1
+                    else:
+                        summary.total_inconclusive += 1
+
+                # Allow adaptive generators to observe the response
+                self.generator.update(outcome.prompt, outcome.response)
+
+                # Persist in the original prompt order for reproducibility
+                self.logger.log_trial(
+                    m.experiment_id,
+                    outcome.prompt,
+                    outcome.response,
+                    outcome.verdicts,
+                )
 
         summary.elapsed_seconds = time.perf_counter() - t0
 
