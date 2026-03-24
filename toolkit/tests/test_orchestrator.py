@@ -9,10 +9,11 @@ from pathlib import Path
 import pytest
 
 from sentinel.model_adapters.base import ModelAdapter
+from sentinel.judges.base import JudgeAdapter
 from sentinel.manifest import Manifest, ManifestModel, ManifestGenerator, ManifestJudge
-from sentinel.models import HealthStatus, ModelResponse
+from sentinel.models import HealthStatus, JudgeType, ModelResponse, PromptCandidate, Verdict
 from sentinel.orchestrator import Orchestrator
-from sentinel.plugins import register_adapter
+from sentinel.plugins import register_adapter, register_judge
 
 
 @pytest.fixture
@@ -106,3 +107,74 @@ async def test_batch_parallelism(tmp_path: Path) -> None:
     assert summary.total_prompts == 4
     assert summary.total_errors == 0
     assert orch.adapter.max_in_flight > 1
+
+
+@pytest.mark.asyncio
+async def test_final_verdict_uses_all_judges(tmp_path: Path) -> None:
+    """Conflicting judges should yield an inconclusive ensemble final verdict."""
+
+    class AlwaysComplianceJudge(JudgeAdapter):
+        def __init__(self, name: str = "always-compliance") -> None:
+            super().__init__(name=name, judge_type=JudgeType.HEURISTIC)
+
+        def configure(self, params: dict) -> None:
+            self._configured = True
+
+        def evaluate(self, response: ModelResponse, prompt: PromptCandidate) -> Verdict:
+            return Verdict(
+                prompt_id=prompt.prompt_id,
+                model_id=response.model_id,
+                labels=["compliance"],
+                confidence=1.0,
+                judge_type=self.judge_type.value,
+                explanation="always compliance",
+            )
+
+    class AlwaysRefusalJudge(JudgeAdapter):
+        def __init__(self, name: str = "always-refusal") -> None:
+            super().__init__(name=name, judge_type=JudgeType.HEURISTIC)
+
+        def configure(self, params: dict) -> None:
+            self._configured = True
+
+        def evaluate(self, response: ModelResponse, prompt: PromptCandidate) -> Verdict:
+            return Verdict(
+                prompt_id=prompt.prompt_id,
+                model_id=response.model_id,
+                labels=["refusal"],
+                confidence=1.0,
+                judge_type=self.judge_type.value,
+                explanation="always refusal",
+            )
+
+    register_judge("always-compliance", AlwaysComplianceJudge)
+    register_judge("always-refusal", AlwaysRefusalJudge)
+
+    log_path = tmp_path / "ensemble.jsonl"
+    manifest = Manifest(
+        experiment_id="ensemble-001",
+        author="test",
+        description="ensemble verdict test",
+        model=ManifestModel(adapter="stub", model_id="stub-v1"),
+        generator=ManifestGenerator(name="stub-template", config={"seed": 1}),
+        judges=[
+            ManifestJudge(name="always-compliance"),
+            ManifestJudge(name="always-refusal"),
+        ],
+        seed=1,
+        batch_size=1,
+        num_batches=1,
+        output=str(log_path),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 1
+    assert summary.total_inconclusive == 1
+    assert summary.total_compliances == 0
+    assert summary.total_refusals == 0
+
+    events = [json.loads(line) for line in log_path.read_text().splitlines()]
+    trial = next(e for e in events if e.get("event_type") == "trial_result")
+    assert trial["data"]["final_verdict"]["labels"] == ["inconclusive"]

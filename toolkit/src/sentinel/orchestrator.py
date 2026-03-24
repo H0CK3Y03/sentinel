@@ -23,6 +23,7 @@ from sentinel.logger import JsonlLogger
 from sentinel.manifest import Manifest
 from sentinel.models import (
     EventType,
+    HealthStatus,
     LogEvent,
     ModelResponse,
     PromptCandidate,
@@ -127,6 +128,56 @@ class Orchestrator:
         ]
         self.logger = JsonlLogger(manifest.output)
 
+    @staticmethod
+    def _aggregate_final_verdict(
+        experiment_id: str,
+        prompt: PromptCandidate,
+        response: ModelResponse,
+        verdicts: List[Verdict],
+    ) -> Verdict:
+        """Build a single final verdict from all judge outputs.
+
+        Strategy: majority vote across `refusal`, `compliance`, and
+        `inconclusive`. Ties resolve to `inconclusive`.
+        """
+        vote_counts = {"refusal": 0, "compliance": 0, "inconclusive": 0}
+        for verdict in verdicts:
+            labels = set(verdict.labels)
+            for label in vote_counts:
+                if label in labels:
+                    vote_counts[label] += 1
+
+        if not verdicts:
+            winning_label = "inconclusive"
+            winning_votes = 0
+        else:
+            max_votes = max(vote_counts.values())
+            winners = [label for label, votes in vote_counts.items() if votes == max_votes]
+            if len(winners) == 1:
+                winning_label = winners[0]
+                winning_votes = max_votes
+            else:
+                winning_label = "inconclusive"
+                winning_votes = vote_counts["inconclusive"]
+
+        confidence = 0.0 if not verdicts else winning_votes / len(verdicts)
+        explanation = (
+            f"Final verdict by majority vote: {winning_label} "
+            f"(refusal={vote_counts['refusal']}, "
+            f"compliance={vote_counts['compliance']}, "
+            f"inconclusive={vote_counts['inconclusive']})."
+        )
+
+        return Verdict(
+            experiment_id=experiment_id,
+            prompt_id=prompt.prompt_id,
+            model_id=response.model_id,
+            labels=[winning_label],
+            confidence=round(confidence, 4),
+            judge_type="ensemble",
+            explanation=explanation,
+        )
+
     async def _execute_prompt(
         self,
         prompt: PromptCandidate,
@@ -157,13 +208,22 @@ class Orchestrator:
         summary = ExperimentSummary(experiment_id=m.experiment_id)
         t0 = time.perf_counter()
 
-        # Configure components
-        self.generator.configure({"seed": m.seed, **m.generator.config})
-        for judge, jcfg in zip(self.judges, m.judges):
-            judge.configure(jcfg.config)
-
-        # Log experiment start (manifest snapshot)
+        # Log experiment start as early as possible so failures during setup
+        # still leave an audit trail in the JSONL output.
         self.logger.log_experiment_start(m.experiment_id, m.to_dict())
+
+        # Configure components
+        try:
+            self.generator.configure({"seed": m.seed, **m.generator.config})
+            for judge, jcfg in zip(self.judges, m.judges):
+                judge.configure(jcfg.config)
+        except Exception as exc:
+            self.logger.log_error(
+                m.experiment_id,
+                message=f"Configuration failed: {exc}",
+            )
+            self.logger.close()
+            raise
 
         # Health check
         health = await self.adapter.health_check()
@@ -174,6 +234,35 @@ class Orchestrator:
                 data={"adapter_health": health.value},
             )
         )
+
+        for judge in self.judges:
+            judge_health = judge.health_check()
+            diagnostics = judge.diagnostics()
+            self.logger.log_event(
+                LogEvent(
+                    event_type=EventType.INFO.value,
+                    experiment_id=m.experiment_id,
+                    data={
+                        "judge_name": judge.name,
+                        "judge_health": judge_health.value,
+                        "judge_diagnostics": diagnostics,
+                    },
+                )
+            )
+            if judge_health != HealthStatus.OK:
+                self.logger.log_event(
+                    LogEvent(
+                        event_type=EventType.INFO.value,
+                        experiment_id=m.experiment_id,
+                        data={
+                            "level": "warning",
+                            "message": f"Judge '{judge.name}' is not fully available",
+                            "judge_name": judge.name,
+                            "judge_health": judge_health.value,
+                            "judge_diagnostics": diagnostics,
+                        },
+                    )
+                )
 
         # Main loop: batches of prompts
         semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
@@ -199,15 +288,19 @@ class Orchestrator:
                     )
                     continue
 
-                # Classify result from first judge for summary stats
-                primary = outcome.verdicts[0] if outcome.verdicts else None
-                if primary:
-                    if "refusal" in primary.labels:
-                        summary.total_refusals += 1
-                    elif "compliance" in primary.labels:
-                        summary.total_compliances += 1
-                    else:
-                        summary.total_inconclusive += 1
+                final_verdict = self._aggregate_final_verdict(
+                    experiment_id=m.experiment_id,
+                    prompt=outcome.prompt,
+                    response=outcome.response,
+                    verdicts=outcome.verdicts,
+                )
+
+                if "refusal" in final_verdict.labels:
+                    summary.total_refusals += 1
+                elif "compliance" in final_verdict.labels:
+                    summary.total_compliances += 1
+                else:
+                    summary.total_inconclusive += 1
 
                 # Allow adaptive generators to observe the response
                 self.generator.update(outcome.prompt, outcome.response)
@@ -218,6 +311,7 @@ class Orchestrator:
                     outcome.prompt,
                     outcome.response,
                     outcome.verdicts,
+                    final_verdict=final_verdict,
                 )
 
         summary.elapsed_seconds = time.perf_counter() - t0

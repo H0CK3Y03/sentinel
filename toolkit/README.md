@@ -32,13 +32,13 @@ toolkit/
 │   ├── manifest.py             # YAML/JSON manifest loader
 │   ├── models.py               # shared data models
 │   ├── logger.py               # append-only JSONL log store
-│   ├── plugins.py              # component registry & factories
+│   ├── plugins.py              # registry + runtime entry-point discovery
 │   ├── model_adapters/
 │   │   ├── base.py             # ModelAdapter ABC
 │   │   └── stub.py             # deterministic mock adapter
-    │   ├── generators/
+│   ├── generators/
 │   │   ├── base.py             # AttackGenerator ABC
-    │   │   └── stub.py             # template × goal generator
+│   │   └── stub.py             # template × goal generator
 │   └── judges/
 │       ├── base.py             # JudgeAdapter ABC
 │       ├── heuristic.py        # regex / keyword judge
@@ -70,6 +70,26 @@ register_adapter("my-adapter", MyAdapter)
 ```
 
 Then reference `adapter: my-adapter` in your manifest.
+
+## Local llama.cpp judge
+
+If you have a GGUF model downloaded locally, you can use it as a judge via the
+`llama-cpp-judge` plugin. A ready-to-run example manifest is provided at
+`manifests/qwen36-judge.yaml`.
+
+Run it from the `toolkit/` directory:
+
+```bash
+sentinel run manifests/qwen36-judge.yaml
+```
+
+That manifest uses the local model path:
+
+```text
+/home/hockey/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+```
+
+If you move the model, update `judges[1].config.model_path` accordingly.
 
 ## License
 

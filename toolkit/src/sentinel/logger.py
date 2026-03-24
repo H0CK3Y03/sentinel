@@ -74,17 +74,22 @@ class JsonlLogger:
         prompt: PromptCandidate,
         response: ModelResponse,
         verdicts: list[Verdict],
+        final_verdict: Verdict | None = None,
     ) -> None:
         """Log a complete trial: prompt -> response -> verdicts."""
+        data: Dict[str, Any] = {
+            "prompt": prompt.to_dict(),
+            "response": response.to_dict(),
+            "verdicts": [v.to_dict() for v in verdicts],
+        }
+        if final_verdict is not None:
+            data["final_verdict"] = final_verdict.to_dict()
+
         self._write(
             LogEvent(
                 event_type=EventType.TRIAL_RESULT.value,
                 experiment_id=experiment_id,
-                data={
-                    "prompt": prompt.to_dict(),
-                    "response": response.to_dict(),
-                    "verdicts": [v.to_dict() for v in verdicts],
-                },
+                data=data,
             ).to_dict()
         )
 

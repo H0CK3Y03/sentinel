@@ -18,9 +18,9 @@ from sentinel import __version__
 from sentinel.manifest import load_manifest
 from sentinel.orchestrator import Orchestrator
 from sentinel.plugins import (
-    _ADAPTER_REGISTRY,
-    _GENERATOR_REGISTRY,
-    _JUDGE_REGISTRY,
+    list_adapters,
+    list_generators,
+    list_judges,
 )
 
 app = typer.Typer(
@@ -92,13 +92,13 @@ def validate(
 def list_plugins() -> None:
     """List all registered adapters, generators, and judges."""
     typer.echo("Adapters:")
-    for name in sorted(_ADAPTER_REGISTRY):
+    for name in list_adapters():
         typer.echo(f"  - {name}")
     typer.echo("Generators:")
-    for name in sorted(_GENERATOR_REGISTRY):
+    for name in list_generators():
         typer.echo(f"  - {name}")
     typer.echo("Judges:")
-    for name in sorted(_JUDGE_REGISTRY):
+    for name in list_judges():
         typer.echo(f"  - {name}")
 
 

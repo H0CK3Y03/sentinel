@@ -54,5 +54,9 @@ class JudgeAdapter(ABC):
         """Return the current availability of the judge backend."""
         return HealthStatus.OK
 
+    def diagnostics(self) -> Dict[str, Any]:
+        """Optional runtime diagnostics for logging and troubleshooting."""
+        return {}
+
     def reset(self) -> None:
         """Reset any accumulated state between experiments."""

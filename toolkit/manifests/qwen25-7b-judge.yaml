@@ -1,0 +1,45 @@
+# Experiment manifest - local Qwen2.5 7B judge pipeline
+
+experiment_id: "qwen25-7b-judge-001"
+author: "Adam Veselý"
+description: >
+  Hybrid red-teaming pipeline that uses a smaller local Qwen2.5-7B GGUF
+  model as the LLM judge so it can run on the current machine.
+
+# -- Model adapter -----------------------------------------------------------
+model:
+  adapter: stub
+  model_id: stub-v1
+  config:
+    latency_ms: 50
+
+# -- Attack generator --------------------------------------------------------
+generator:
+  name: stub-template
+  config:
+    seed: 42
+
+# -- Judge pipeline (ordered) -----------------------------------------------
+judges:
+  - name: heuristic
+    config:
+      refusal_threshold: 1
+      compliance_threshold: 1
+  - name: llama-cpp-judge
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
+      n_ctx: 1024
+      n_gpu_layers: 0
+      n_threads: 16
+      temperature: 0.0
+      max_tokens: 96
+
+# -- Execution parameters ---------------------------------------------------
+seed: 42
+batch_size: 4
+num_batches: 1
+max_concurrency: 1
+rate_limit_rps: 0
+
+# -- Output -----------------------------------------------------------------
+output: "/home/hockey/bachelor_thesis/toolkit/logs/qwen25-7b-judge-001.jsonl"
