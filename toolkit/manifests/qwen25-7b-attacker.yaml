@@ -1,0 +1,42 @@
+# Experiment manifest - local Qwen2.5 7B attacker pipeline
+
+experiment_id: "qwen25-7b-attacker-001"
+author: "Adam Veselý"
+description: >
+  Red-teaming pipeline that uses a local Qwen2.5-7B GGUF model as the
+  adversarial prompt generator via llama.cpp.
+
+# -- Model adapter -----------------------------------------------------------
+model:
+  adapter: stub
+  model_id: stub-v1
+  config:
+    latency_ms: 50
+
+# -- Attack generator --------------------------------------------------------
+generator:
+  name: llama-cpp-attacker
+  config:
+    model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
+    n_ctx: 1024
+    n_gpu_layers: 0
+    n_threads: 16
+    temperature: 0.7
+    max_tokens: 256
+
+# -- Judge pipeline (ordered) -----------------------------------------------
+judges:
+  - name: heuristic
+    config:
+      refusal_threshold: 1
+      compliance_threshold: 1
+
+# -- Execution parameters ---------------------------------------------------
+seed: 42
+batch_size: 4
+num_batches: 1
+max_concurrency: 1
+rate_limit_rps: 0
+
+# -- Output -----------------------------------------------------------------
+output: "/home/hockey/bachelor_thesis/toolkit/logs/qwen25-7b-attacker-001.jsonl"
