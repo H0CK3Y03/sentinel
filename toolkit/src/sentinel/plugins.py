@@ -27,6 +27,11 @@ except ImportError:  # pragma: no cover - optional dependency
     LlamaCppJudge = None  # type: ignore[assignment]
 
 try:
+    from sentinel.model_adapters.llama_cpp import LlamaCppModelAdapter
+except ImportError:  # pragma: no cover - optional dependency
+    LlamaCppModelAdapter = None  # type: ignore[assignment]
+
+try:
     from sentinel.generators.llama_cpp import LlamaCppAttackGenerator
 except ImportError:  # pragma: no cover - optional dependency
     LlamaCppAttackGenerator = None  # type: ignore[assignment]
@@ -44,6 +49,9 @@ _JUDGE_ENTRYPOINT_GROUP = "sentinel.judges"
 _ADAPTER_REGISTRY: Dict[str, Type[ModelAdapter]] = {
     "stub": StubAdapter,
 }
+
+if LlamaCppModelAdapter is not None:
+    _ADAPTER_REGISTRY["llama-cpp"] = LlamaCppModelAdapter
 
 _GENERATOR_REGISTRY: Dict[str, Type[AttackGenerator]] = {
     "stub-template": StubAttackGenerator,

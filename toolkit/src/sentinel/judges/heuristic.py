@@ -25,7 +25,7 @@ from sentinel.models import (
 
 _DEFAULT_REFUSAL_PATTERNS: List[str] = [
     r"(?i)\bI'?m sorry\b",
-    r"(?i)\bcannot assist\b",
+    r"(?i)\bcannot (assist|help|provide|generate|create|answer|bypass)\b",
     r"(?i)\bcan'?t help with\b",
     r"(?i)\bnot able to\b",
     r"(?i)\bI (must )?refuse\b",
