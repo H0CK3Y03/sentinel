@@ -52,6 +52,7 @@ class Manifest:
 
     model: ManifestModel = field(default_factory=ManifestModel)
     generator: ManifestGenerator = field(default_factory=ManifestGenerator)
+    generators: List[ManifestGenerator] = field(default_factory=list)
     judges: List[ManifestJudge] = field(default_factory=lambda: [ManifestJudge()])
 
     seed: int = 42
@@ -63,14 +64,27 @@ class Manifest:
 
     raw: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Normalise legacy single-generator and new multi-generator manifests."""
+        if self.generators:
+            self.generators = list(self.generators)
+            self.generator = self.generators[0]
+        else:
+            self.generators = [self.generator]
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
+        generator_dicts = [
+            {"name": g.name, "config": g.config}
+            for g in self.generators
+        ]
         return {
             "experiment_id": self.experiment_id,
             "author": self.author,
             "description": self.description,
             "model": {"adapter": self.model.adapter, "model_id": self.model.model_id, "config": self.model.config},
             "generator": {"name": self.generator.name, "config": self.generator.config},
+            "generators": generator_dicts,
             "judges": [{"name": j.name, "config": j.config} for j in self.judges],
             "seed": self.seed,
             "batch_size": self.batch_size,
@@ -84,6 +98,7 @@ class Manifest:
 def _parse_raw(data: Dict[str, Any]) -> Manifest:
     """Build a `Manifest` from a raw dict."""
     model_raw = data.get("model", {})
+    generators_raw = data.get("generators")
     gen_raw = data.get("generator", {})
     judge_list = data.get("judges", [{}])
 
@@ -92,10 +107,22 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         model_id=model_raw.get("model_id", "stub-v1"),
         config=model_raw.get("config", {}),
     )
-    generator = ManifestGenerator(
-        name=gen_raw.get("name", "stub-template"),
-        config=gen_raw.get("config", {}),
-    )
+    if isinstance(generators_raw, list) and generators_raw:
+        generators = [
+            ManifestGenerator(
+                name=g.get("name", "stub-template"),
+                config=g.get("config", {}),
+            )
+            for g in generators_raw
+            if isinstance(g, dict)
+        ]
+    else:
+        generators = [
+            ManifestGenerator(
+                name=gen_raw.get("name", "stub-template"),
+                config=gen_raw.get("config", {}),
+            )
+        ]
     judges = [
         ManifestJudge(name=j.get("name", "heuristic"), config=j.get("config", {}))
         for j in (judge_list if isinstance(judge_list, list) else [judge_list])
@@ -106,7 +133,8 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         author=data.get("author", ""),
         description=data.get("description", ""),
         model=model,
-        generator=generator,
+        generator=generators[0],
+        generators=generators,
         judges=judges,
         seed=int(data.get("seed", 42)),
         batch_size=int(data.get("batch_size", 8)),

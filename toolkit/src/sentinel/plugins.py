@@ -17,6 +17,11 @@ from sentinel.model_adapters.base import ModelAdapter
 from sentinel.model_adapters.stub import StubAdapter
 from sentinel.generators.base import AttackGenerator
 from sentinel.generators.stub import StubAttackGenerator
+from sentinel.generators.single_turn_jailbreak import SingleTurnJailbreakGenerator
+from sentinel.generators.prompt_injection import PromptInjectionGenerator
+from sentinel.generators.token_perturbation import TokenPerturbationGenerator
+from sentinel.generators.universal_trigger import UniversalTriggerGenerator
+from sentinel.generators.multi_turn_conversation import MultiTurnConversationGenerator
 from sentinel.judges.base import JudgeAdapter
 from sentinel.judges.heuristic import HeuristicJudge
 from sentinel.judges.stub import StubJudge
@@ -55,6 +60,11 @@ if LlamaCppModelAdapter is not None:
 
 _GENERATOR_REGISTRY: Dict[str, Type[AttackGenerator]] = {
     "stub-template": StubAttackGenerator,
+    "single-turn-jailbreak": SingleTurnJailbreakGenerator,
+    "prompt-injection": PromptInjectionGenerator,
+    "token-perturbation": TokenPerturbationGenerator,
+    "universal-trigger": UniversalTriggerGenerator,
+    "multi-turn-conversation": MultiTurnConversationGenerator,
 }
 
 if LlamaCppAttackGenerator is not None:

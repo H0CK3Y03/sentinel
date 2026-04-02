@@ -1,0 +1,20 @@
+experiment_id: single-turn-jailbreak-test
+author: "LLM Red-Teaming Toolkit"
+description: "Test single-turn jailbreak attacks using various prompt-engineering techniques"
+
+model:
+  adapter: stub
+  model_id: stub-v1
+
+generator:
+  name: single-turn-jailbreak
+  config:
+    seed: 42
+
+judges:
+  - name: heuristic
+
+batch_size: 8
+num_batches: 2
+max_concurrency: 4
+output: "logs/single-turn-jailbreak.jsonl"

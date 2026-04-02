@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from sentinel.generators.base import AttackGenerator
 from sentinel.model_adapters.base import ModelAdapter
 from sentinel.judges.base import JudgeAdapter
 from sentinel.manifest import Manifest, ManifestModel, ManifestGenerator, ManifestJudge
 from sentinel.models import HealthStatus, JudgeType, ModelResponse, PromptCandidate, Verdict
 from sentinel.orchestrator import Orchestrator
-from sentinel.plugins import register_adapter, register_judge
+from sentinel.plugins import register_adapter, register_generator, register_judge
 
 
 @pytest.fixture
@@ -35,6 +36,55 @@ def default_manifest(tmp_log: Path) -> Manifest:
         num_batches=2,
         output=str(tmp_log),
     )
+
+
+@pytest.mark.asyncio
+async def test_multiple_generators_multiply_batches(tmp_path: Path) -> None:
+    class StaticGenerator(AttackGenerator):
+        def __init__(self, name: str = "static-generator") -> None:
+            super().__init__(name=name)
+
+        def configure(self, params: dict) -> None:
+            self._configured = True
+
+        def next(self, batch_size: int = 1) -> list[PromptCandidate]:
+            return [PromptCandidate(text=f"prompt-{self.name}") for _ in range(batch_size)]
+
+        def reset(self) -> None:
+            pass
+
+    register_generator("static-generator-a", StaticGenerator)
+    register_generator("static-generator-b", StaticGenerator)
+
+    log_path = tmp_path / "multi.jsonl"
+    manifest = Manifest(
+        experiment_id="multi-001",
+        author="test",
+        description="multi-generator test",
+        model=ManifestModel(adapter="stub", model_id="stub-v1"),
+        generators=[
+            ManifestGenerator(name="static-generator-a"),
+            ManifestGenerator(name="static-generator-b"),
+        ],
+        judges=[ManifestJudge(name="heuristic")],
+        seed=1,
+        batch_size=2,
+        num_batches=3,
+        output=str(log_path),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 12
+    events = [json.loads(line) for line in log_path.read_text().splitlines()]
+    trials = [event for event in events if event.get("event_type") == "trial_result"]
+    assert len(trials) == 12
+    assert {trial["data"]["prompt"]["metadata"]["attack_type"] for trial in trials} == {
+        "static-generator-a",
+        "static-generator-b",
+    }
+    assert all("generator_name" in trial["data"]["prompt"]["metadata"] for trial in trials)
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,21 @@
+experiment_id: universal-trigger-test
+author: "LLM Red-Teaming Toolkit"
+description: "Test universal/transferable trigger attacks that elicit behaviour across models"
+
+model:
+  adapter: stub
+  model_id: stub-v1
+
+generator:
+  name: universal-trigger
+  config:
+    seed: 42
+    search_mode: false
+
+judges:
+  - name: heuristic
+
+batch_size: 8
+num_batches: 2
+max_concurrency: 4
+output: "logs/universal-trigger.jsonl"

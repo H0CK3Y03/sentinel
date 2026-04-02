@@ -1,0 +1,20 @@
+experiment_id: multi-turn-conversation-test
+author: "LLM Red-Teaming Toolkit"
+description: "Test multi-turn conversational attacks that gradually steer models toward harm"
+
+model:
+  adapter: stub
+  model_id: stub-v1
+
+generator:
+  name: multi-turn-conversation
+  config:
+    seed: 42
+
+judges:
+  - name: heuristic
+
+batch_size: 4
+num_batches: 1
+max_concurrency: 4
+output: "logs/multi-turn-conversation.jsonl"

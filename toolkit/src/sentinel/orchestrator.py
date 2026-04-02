@@ -21,6 +21,7 @@ from sentinel.generators.base import AttackGenerator
 from sentinel.judges.base import JudgeAdapter
 from sentinel.logger import JsonlLogger
 from sentinel.manifest import Manifest
+from sentinel.metrics import AggregateMetrics, MetricsCollector
 from sentinel.models import (
     EventType,
     HealthStatus,
@@ -122,11 +123,15 @@ class Orchestrator:
             model_id=manifest.model.model_id,
             config=manifest.model.config,
         )
-        self.generator: AttackGenerator = create_generator(manifest.generator.name)
+        self.generators: List[AttackGenerator] = [
+            create_generator(generator.name) for generator in manifest.generators
+        ]
+        self.generator: AttackGenerator = self.generators[0]
         self.judges: List[JudgeAdapter] = [
             create_judge(j.name) for j in manifest.judges
         ]
         self.logger = JsonlLogger(manifest.output)
+        self.metrics_collector = MetricsCollector()
 
     @staticmethod
     def _aggregate_final_verdict(
@@ -214,7 +219,8 @@ class Orchestrator:
 
         # Configure components
         try:
-            self.generator.configure({"seed": m.seed, **m.generator.config})
+            for generator, generator_cfg in zip(self.generators, m.generators):
+                generator.configure({"seed": m.seed, **generator_cfg.config})
             for judge, jcfg in zip(self.judges, m.judges):
                 judge.configure(jcfg.config)
         except Exception as exc:
@@ -267,54 +273,91 @@ class Orchestrator:
         # Main loop: batches of prompts
         semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
         rate_limiter = _AsyncRateLimiter(m.rate_limit_rps)
-        for batch_idx in range(m.num_batches):
-            prompts = self.generator.next(batch_size=m.batch_size)
-            async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
-                async with semaphore:
-                    return await self._execute_prompt(prompt, m.experiment_id, rate_limiter)
+        for generator, generator_cfg in zip(self.generators, m.generators):
+            for batch_idx in range(m.num_batches):
+                prompts = generator.next(batch_size=m.batch_size)
 
-            outcomes = await asyncio.gather(
-                *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
-            )
+                async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
+                    async with semaphore:
+                        return await self._execute_prompt(prompt, m.experiment_id, rate_limiter)
 
-            for outcome in outcomes:
-                summary.total_prompts += 1
-                if outcome.error is not None or outcome.response is None:
-                    summary.total_errors += 1
-                    self.logger.log_error(
-                        m.experiment_id,
-                        message=str(outcome.error) if outcome.error else "Unknown execution error",
-                        details={"prompt_id": outcome.prompt.prompt_id},
+                outcomes = await asyncio.gather(
+                    *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
+                )
+
+                for outcome in outcomes:
+                    summary.total_prompts += 1
+                    if outcome.error is not None or outcome.response is None:
+                        summary.total_errors += 1
+                        self.logger.log_error(
+                            m.experiment_id,
+                            message=str(outcome.error) if outcome.error else "Unknown execution error",
+                            details={"prompt_id": outcome.prompt.prompt_id},
+                        )
+                        continue
+
+                    final_verdict = self._aggregate_final_verdict(
+                        experiment_id=m.experiment_id,
+                        prompt=outcome.prompt,
+                        response=outcome.response,
+                        verdicts=outcome.verdicts,
                     )
-                    continue
 
-                final_verdict = self._aggregate_final_verdict(
-                    experiment_id=m.experiment_id,
-                    prompt=outcome.prompt,
-                    response=outcome.response,
-                    verdicts=outcome.verdicts,
-                )
+                    if "refusal" in final_verdict.labels:
+                        summary.total_refusals += 1
+                    elif "compliance" in final_verdict.labels:
+                        summary.total_compliances += 1
+                    else:
+                        summary.total_inconclusive += 1
 
-                if "refusal" in final_verdict.labels:
-                    summary.total_refusals += 1
-                elif "compliance" in final_verdict.labels:
-                    summary.total_compliances += 1
-                else:
-                    summary.total_inconclusive += 1
+                    metadata = dict(outcome.prompt.metadata)
+                    attack_type = metadata.get("attack_type") or generator_cfg.name
+                    metadata.setdefault("attack_type", attack_type)
+                    metadata.setdefault("generator_name", generator_cfg.name)
+                    enriched_prompt = PromptCandidate(
+                        prompt_id=outcome.prompt.prompt_id,
+                        text=outcome.prompt.text,
+                        metadata=metadata,
+                    )
 
-                # Allow adaptive generators to observe the response
-                self.generator.update(outcome.prompt, outcome.response)
+                    # Record detailed metrics
+                    self.metrics_collector.record_trial(
+                        prompt=enriched_prompt,
+                        response=outcome.response,
+                        verdicts=outcome.verdicts,
+                        final_verdict=final_verdict,
+                        attack_type=attack_type,
+                    )
 
-                # Persist in the original prompt order for reproducibility
-                self.logger.log_trial(
-                    m.experiment_id,
-                    outcome.prompt,
-                    outcome.response,
-                    outcome.verdicts,
-                    final_verdict=final_verdict,
-                )
+                    # Allow adaptive generators to observe the response
+                    generator.update(outcome.prompt, outcome.response)
+
+                    # Persist in the original prompt order for reproducibility
+                    self.logger.log_trial(
+                        m.experiment_id,
+                        enriched_prompt,
+                        outcome.response,
+                        outcome.verdicts,
+                        final_verdict=final_verdict,
+                    )
 
         summary.elapsed_seconds = time.perf_counter() - t0
+
+        # Compute detailed aggregate metrics
+        aggregate_metrics = self.metrics_collector.compute_aggregate(
+            elapsed_seconds=summary.elapsed_seconds
+        )
+
+        # Log detailed metrics as final INFO event
+        self.logger.log_event(
+            LogEvent(
+                event_type=EventType.INFO.value,
+                experiment_id=m.experiment_id,
+                data={
+                    "detailed_metrics": aggregate_metrics.to_dict(),
+                },
+            )
+        )
 
         # Log experiment end
         self.logger.log_experiment_end(m.experiment_id, summary.to_dict())

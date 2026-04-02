@@ -36,6 +36,11 @@ stub = "sentinel.model_adapters.stub:StubAdapter"
 
 [project.entry-points."sentinel.generators"]
 stub-template = "sentinel.generators.stub:StubAttackGenerator"
+single-turn-jailbreak = "sentinel.generators.single_turn_jailbreak:SingleTurnJailbreakGenerator"
+prompt-injection = "sentinel.generators.prompt_injection:PromptInjectionGenerator"
+token-perturbation = "sentinel.generators.token_perturbation:TokenPerturbationGenerator"
+universal-trigger = "sentinel.generators.universal_trigger:UniversalTriggerGenerator"
+multi-turn-conversation = "sentinel.generators.multi_turn_conversation:MultiTurnConversationGenerator"
 
 [project.entry-points."sentinel.judges"]
 heuristic = "sentinel.judges.heuristic:HeuristicJudge"

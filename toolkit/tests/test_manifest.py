@@ -15,7 +15,9 @@ def test_load_yaml(tmp_path: Path) -> None:
     p.write_text(
         "experiment_id: yaml-test\n"
         "model:\n  adapter: stub\n  model_id: stub-v1\n"
-        "generator:\n  name: stub-template\n"
+        "generators:\n"
+        "  - name: stub-template\n"
+        "  - name: single-turn-jailbreak\n"
         "judges:\n  - name: heuristic\n"
         "batch_size: 4\n"
         "num_batches: 1\n"
@@ -25,6 +27,8 @@ def test_load_yaml(tmp_path: Path) -> None:
     assert isinstance(m, Manifest)
     assert m.experiment_id == "yaml-test"
     assert m.model.adapter == "stub"
+    assert len(m.generators) == 2
+    assert m.generator.name == "stub-template"
 
 
 def test_load_json(tmp_path: Path) -> None:
@@ -36,6 +40,18 @@ def test_load_json(tmp_path: Path) -> None:
     }))
     m = load_manifest(p)
     assert m.experiment_id == "json-test"
+
+
+def test_load_legacy_single_generator(tmp_path: Path) -> None:
+    p = tmp_path / "legacy.yaml"
+    p.write_text(
+        "experiment_id: legacy-test\n"
+        "generator:\n  name: stub-template\n"
+        "judges:\n  - name: heuristic\n"
+    )
+    m = load_manifest(p)
+    assert len(m.generators) == 1
+    assert m.generator.name == "stub-template"
 
 
 def test_missing_file() -> None:

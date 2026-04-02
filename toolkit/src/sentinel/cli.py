@@ -5,16 +5,19 @@ Built with Typer so that the toolkit can be invoked as:
     sentinel run manifests/example.yaml
     sentinel validate manifests/example.yaml
     sentinel list-plugins
+    sentinel analyze logs/experiment.jsonl
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 
 import typer
 
 from sentinel import __version__
+from sentinel.analysis import ExperimentAnalyzer, print_report
 from sentinel.manifest import load_manifest
 from sentinel.orchestrator import Orchestrator
 from sentinel.plugins import (
@@ -53,9 +56,10 @@ def run(
 
     typer.echo(f"[sentinel] Starting experiment {manifest.experiment_id}")
     typer.echo(f"  adapter   : {manifest.model.adapter} ({manifest.model.model_id})")
-    typer.echo(f"  generator : {manifest.generator.name}")
+    generator_names = ", ".join(generator.name for generator in manifest.generators)
+    typer.echo(f"  generators: {generator_names}")
     typer.echo(f"  judges    : {[j.name for j in manifest.judges]}")
-    typer.echo(f"  batches   : {manifest.num_batches} * {manifest.batch_size}")
+    typer.echo(f"  batches   : {len(manifest.generators)} * {manifest.num_batches} * {manifest.batch_size}")
     typer.echo(f"  output    : {manifest.output}")
     typer.echo()
 
@@ -106,6 +110,45 @@ def list_plugins() -> None:
 def version() -> None:
     """Print the toolkit version."""
     typer.echo(f"sentinel {__version__}")
+
+
+@app.command()
+def analyze(
+    log_path: str = typer.Argument(
+        ..., help="Path to the JSONL experiment log file to analyse."
+    ),
+    output_json: str = typer.Option(
+        None, "--output-json", help="Save report as JSON to this file (optional)."
+    ),
+) -> None:
+    """Analyse an experiment log and generate a detailed report."""
+    try:
+        analyzer = ExperimentAnalyzer(log_path)
+        analyzer.load_log()
+        report = analyzer.generate_report()
+    except FileNotFoundError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1)
+    except Exception as exc:
+        typer.echo(f"Error analysing log: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    # Print to stdout
+    print_report(report)
+
+    # Optionally save to JSON
+    if output_json:
+        try:
+            output_path = Path(output_json)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(report.to_dict(), indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            typer.echo(f"\nReport saved to: {output_json}")
+        except Exception as exc:
+            typer.echo(f"Error saving JSON report: {exc}", err=True)
+            raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------

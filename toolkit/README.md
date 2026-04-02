@@ -2,21 +2,53 @@
 
 A modular, lightweight, open-source toolkit for systematic red-teaming of large language models (LLMs).
 
+## Features
+
+**Attack Generators:**
+- Single-turn jailbreak attacks (role-play, DAN, direct override, etc.)
+- Prompt injection attacks (direct and indirect)
+- Token perturbation attacks (spelling, encoding, spacing)
+- Universal/transferable trigger attacks
+- Multi-turn conversational attacks
+
+**Evaluation & Metrics:**
+- Comprehensive trial-level and aggregate metrics collection
+- Per-attack-type performance breakdown
+- Judge agreement and consensus measurement
+- Detailed analysis and reporting via CLI
+
+**Model Support:**
+- Local llama.cpp models (GGUF format)
+- Extensible adapter interface for other backends
+
 ## Quick start
 
 ```bash
 # Install in editable mode (requires Python ≥ 3.10)
 pip install -e ".[dev]"
 
-# Run the example experiment
+# Run an attack test
 sentinel run manifests/example.yaml
 
-# Validate a manifest without executing
+# Analyse the results
+sentinel analyze logs/example.jsonl
+
+# Validate a manifest
 sentinel validate manifests/example.yaml
 
 # List available plugins
 sentinel list-plugins
 ```
+
+## Built-in Attack Generators
+
+| Generator | Type | Use Case |
+|-----------|------|----------|
+| `single-turn-jailbreak` | Jailbreak | One-shot prompt engineering attacks |
+| `prompt-injection` | Injection | User-input override attacks |
+| `token-perturbation` | Evasion | Adversarial token modifications |
+| `universal-trigger` | Trigger | Transferable attack tokens |
+| `multi-turn-conversation` | Conversation | Multi-step dialogue attacks |
 
 ## Project layout
 
@@ -24,30 +56,56 @@ sentinel list-plugins
 toolkit/
 ├── pyproject.toml              # packaging & entry-points
 ├── manifests/
-│   └── example.yaml            # sample experiment manifest
+│   ├── single-turn-jailbreak.yaml
+│   ├── prompt-injection.yaml
+│   ├── token-perturbation.yaml
+│   ├── universal-trigger.yaml
+│   ├── multi-turn-conversation.yaml
+│   └── comprehensive-attacks.yaml
 ├── src/sentinel/
 │   ├── __init__.py
-│   ├── cli.py                  # Typer CLI (sentinel run / validate / …)
-│   ├── orchestrator.py         # central experiment runner
-│   ├── manifest.py             # YAML/JSON manifest loader
-│   ├── models.py               # shared data models
-│   ├── logger.py               # append-only JSONL log store
-│   ├── plugins.py              # registry + runtime entry-point discovery
-│   ├── model_adapters/
-│   │   ├── base.py             # ModelAdapter ABC
-│   │   └── stub.py             # deterministic mock adapter
-│   ├── generators/
-│   │   ├── base.py             # AttackGenerator ABC
-│   │   └── stub.py             # template × goal generator
-│   └── judges/
-│       ├── base.py             # JudgeAdapter ABC
-│       ├── heuristic.py        # regex / keyword judge
-│       └── stub.py             # placeholder LLM judge
+│   ├── cli.py                  # Typer CLI
+│   ├── orchestrator.py         # experiment runner
+│   ├── manifest.py             # manifest loader
+│   ├── models.py               # data models
+│   ├── logger.py               # JSONL logging
+│   ├── metrics.py              # metrics collection
+│   ├── analysis.py             # experiment analysis
+│   ├── plugins.py              # plugin registry
+│   ├── model_adapters/         # model backends
+│   ├── generators/             # attack generators
+│   │   ├── base.py
+│   │   ├── single_turn_jailbreak.py
+│   │   ├── prompt_injection.py
+│   │   ├── token_perturbation.py
+│   │   ├── universal_trigger.py
+│   │   └── multi_turn_conversation.py
+│   └── judges/                 # evaluation judges
 └── tests/
     └── ...
 ```
 
-## Writing a new adapter
+## Example: Run and Analyse
+
+```bash
+# Run a comprehensive test
+sentinel run manifests/comprehensive-attacks.yaml
+
+# Analyse results with detailed breakdown
+sentinel analyze logs/comprehensive-attacks.jsonl
+
+# Save analysis to JSON
+sentinel analyze logs/comprehensive-attacks.jsonl \
+  --output-json reports/comprehensive.json
+```
+
+## Detailed Documentation
+
+- **[Attacks and Metrics Guide](ATTACKS_AND_METRICS.md)** - Complete reference for all attack types, metrics, and analysis
+- **Custom Generators** - Implement your own attack generators by extending `AttackGenerator`
+- **Custom Judges** - Implement evaluation logic by extending `JudgeAdapter`
+
+## Writing a custom adapter
 
 ```python
 from sentinel.model_adapters.base import ModelAdapter
