@@ -20,10 +20,10 @@ model:
     max_tokens: 256
 
 # -- Attack generator --------------------------------------------------------
-generator:
-  name: stub-template
-  config:
-    seed: 42
+generators:
+  - name: stub-template
+    config:
+      seed: 42
 
 # -- Judge pipeline (ordered) -----------------------------------------------
 judges:

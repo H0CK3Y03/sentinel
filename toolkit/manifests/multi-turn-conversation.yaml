@@ -6,10 +6,10 @@ model:
   adapter: stub
   model_id: stub-v1
 
-generator:
-  name: multi-turn-conversation
-  config:
-    seed: 42
+generators:
+  - name: multi-turn-conversation
+    config:
+      seed: 42
 
 judges:
   - name: heuristic

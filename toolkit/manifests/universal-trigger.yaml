@@ -6,11 +6,11 @@ model:
   adapter: stub
   model_id: stub-v1
 
-generator:
-  name: universal-trigger
-  config:
-    seed: 42
-    search_mode: false
+generators:
+  - name: universal-trigger
+    config:
+      seed: 42
+      search_mode: false
 
 judges:
   - name: heuristic

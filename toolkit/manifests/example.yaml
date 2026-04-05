@@ -14,12 +14,12 @@ model:
     latency_ms: 50             # simulated response latency
 
 # -- Attack generator --------------------------------------------------------
-generator:
-  name: stub-template          # built-in template * goal cross-product
-  config:
-    seed: 42
-    # templates: [...]         # override built-in templates (optional)
-    # goals: [...]             # override built-in goals (optional)
+generators:
+  - name: stub-template          # built-in template * goal cross-product
+    config:
+      seed: 42
+      # templates: [...]         # override built-in templates (optional)
+      # goals: [...]             # override built-in goals (optional)
 
 # -- Judge pipeline (ordered) -----------------------------------------------
 judges:

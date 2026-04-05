@@ -6,10 +6,10 @@ model:
   adapter: stub
   model_id: stub-v1
 
-generator:
-  name: single-turn-jailbreak
-  config:
-    seed: 42
+generators:
+  - name: single-turn-jailbreak
+    config:
+      seed: 42
 
 judges:
   - name: heuristic

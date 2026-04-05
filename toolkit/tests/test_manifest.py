@@ -28,7 +28,7 @@ def test_load_yaml(tmp_path: Path) -> None:
     assert m.experiment_id == "yaml-test"
     assert m.model.adapter == "stub"
     assert len(m.generators) == 2
-    assert m.generator.name == "stub-template"
+    assert m.generators[0].name == "stub-template"
 
 
 def test_load_json(tmp_path: Path) -> None:
@@ -42,16 +42,15 @@ def test_load_json(tmp_path: Path) -> None:
     assert m.experiment_id == "json-test"
 
 
-def test_load_legacy_single_generator(tmp_path: Path) -> None:
+def test_default_generator_fallback(tmp_path: Path) -> None:
     p = tmp_path / "legacy.yaml"
     p.write_text(
         "experiment_id: legacy-test\n"
-        "generator:\n  name: stub-template\n"
         "judges:\n  - name: heuristic\n"
     )
     m = load_manifest(p)
     assert len(m.generators) == 1
-    assert m.generator.name == "stub-template"
+    assert m.generators[0].name == "stub-template"
 
 
 def test_missing_file() -> None:

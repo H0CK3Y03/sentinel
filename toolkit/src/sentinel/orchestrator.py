@@ -21,7 +21,7 @@ from sentinel.generators.base import AttackGenerator
 from sentinel.judges.base import JudgeAdapter
 from sentinel.logger import JsonlLogger
 from sentinel.manifest import Manifest
-from sentinel.metrics import AggregateMetrics, MetricsCollector
+from sentinel.metrics import MetricsCollector
 from sentinel.models import (
     EventType,
     HealthStatus,
@@ -126,7 +126,6 @@ class Orchestrator:
         self.generators: List[AttackGenerator] = [
             create_generator(generator.name) for generator in manifest.generators
         ]
-        self.generator: AttackGenerator = self.generators[0]
         self.judges: List[JudgeAdapter] = [
             create_judge(j.name) for j in manifest.judges
         ]

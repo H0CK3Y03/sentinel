@@ -6,10 +6,10 @@ model:
   adapter: stub
   model_id: stub-v1
 
-generator:
-  name: prompt-injection
-  config:
-    seed: 42
+generators:
+  - name: prompt-injection
+    config:
+      seed: 42
 
 judges:
   - name: heuristic

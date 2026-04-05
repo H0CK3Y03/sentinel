@@ -14,15 +14,15 @@ model:
     latency_ms: 50
 
 # -- Attack generator --------------------------------------------------------
-generator:
-  name: llama-cpp-attacker
-  config:
-    model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
-    n_ctx: 1024
-    n_gpu_layers: 0
-    n_threads: 16
-    temperature: 0.7
-    max_tokens: 256
+generators:
+  - name: llama-cpp-attacker
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
+      n_ctx: 1024
+      n_gpu_layers: 0
+      n_threads: 16
+      temperature: 0.7
+      max_tokens: 256
 
 # -- Judge pipeline (ordered) -----------------------------------------------
 judges:

@@ -51,7 +51,6 @@ class Manifest:
     description: str = ""
 
     model: ManifestModel = field(default_factory=ManifestModel)
-    generator: ManifestGenerator = field(default_factory=ManifestGenerator)
     generators: List[ManifestGenerator] = field(default_factory=list)
     judges: List[ManifestJudge] = field(default_factory=lambda: [ManifestJudge()])
 
@@ -65,12 +64,8 @@ class Manifest:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Normalise legacy single-generator and new multi-generator manifests."""
-        if self.generators:
-            self.generators = list(self.generators)
-            self.generator = self.generators[0]
-        else:
-            self.generators = [self.generator]
+        """Normalise generator list and ensure at least one generator exists."""
+        self.generators = _normalise_generators(self.generators)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
@@ -83,7 +78,6 @@ class Manifest:
             "author": self.author,
             "description": self.description,
             "model": {"adapter": self.model.adapter, "model_id": self.model.model_id, "config": self.model.config},
-            "generator": {"name": self.generator.name, "config": self.generator.config},
             "generators": generator_dicts,
             "judges": [{"name": j.name, "config": j.config} for j in self.judges],
             "seed": self.seed,
@@ -99,7 +93,6 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     """Build a `Manifest` from a raw dict."""
     model_raw = data.get("model", {})
     generators_raw = data.get("generators")
-    gen_raw = data.get("generator", {})
     judge_list = data.get("judges", [{}])
 
     model = ManifestModel(
@@ -107,8 +100,8 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         model_id=model_raw.get("model_id", "stub-v1"),
         config=model_raw.get("config", {}),
     )
-    if isinstance(generators_raw, list) and generators_raw:
-        generators = [
+    generators = _normalise_generators(
+        [
             ManifestGenerator(
                 name=g.get("name", "stub-template"),
                 config=g.get("config", {}),
@@ -116,13 +109,9 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
             for g in generators_raw
             if isinstance(g, dict)
         ]
-    else:
-        generators = [
-            ManifestGenerator(
-                name=gen_raw.get("name", "stub-template"),
-                config=gen_raw.get("config", {}),
-            )
-        ]
+        if isinstance(generators_raw, list)
+        else None
+    )
     judges = [
         ManifestJudge(name=j.get("name", "heuristic"), config=j.get("config", {}))
         for j in (judge_list if isinstance(judge_list, list) else [judge_list])
@@ -133,7 +122,6 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         author=data.get("author", ""),
         description=data.get("description", ""),
         model=model,
-        generator=generators[0],
         generators=generators,
         judges=judges,
         seed=int(data.get("seed", 42)),
@@ -144,6 +132,17 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         output=data.get("output", "logs/experiment.jsonl"),
         raw=data,
     )
+
+
+def _normalise_generators(generators: List[ManifestGenerator] | None) -> List[ManifestGenerator]:
+    """Return a non-empty generator list.
+
+    A manifest always needs at least one attack generator.  When none is
+    provided, use the built-in stub template generator as the default.
+    """
+    if generators:
+        return list(generators)
+    return [ManifestGenerator()]
 
 
 def load_manifest(path: str | Path) -> Manifest:
