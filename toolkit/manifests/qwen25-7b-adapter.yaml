@@ -7,17 +7,17 @@ description: >
   target model adapter via llama.cpp.
 
 # -- Model adapter -----------------------------------------------------------
-model:
-  adapter: llama-cpp
-  model_id: qwen2.5-7b-local
-  config:
-    model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
-    system_prompt: You are a helpful assistant.
-    n_ctx: 1024
-    n_gpu_layers: 0
-    n_threads: 16
-    temperature: 0.7
-    max_tokens: 256
+adapters:
+  - adapter: llama-cpp
+    model_id: qwen2.5-7b-local
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
+      system_prompt: You are a helpful assistant.
+      n_ctx: 1024
+      n_gpu_layers: 0
+      n_threads: 16
+      temperature: 0.7
+      max_tokens: 256
 
 # -- Attack generator --------------------------------------------------------
 generators:

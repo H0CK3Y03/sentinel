@@ -7,11 +7,11 @@ description: >
   model as the LLM judge so it can run on the current machine.
 
 # -- Model adapter -----------------------------------------------------------
-model:
-  adapter: stub
-  model_id: stub-v1
-  config:
-    latency_ms: 50
+adapters:
+  - adapter: stub
+    model_id: stub-v1
+    config:
+      latency_ms: 50
 
 # -- Attack generator --------------------------------------------------------
 generators:

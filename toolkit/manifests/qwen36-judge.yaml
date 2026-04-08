@@ -7,11 +7,11 @@ description: >
   a local Qwen3.6-35B-A3B GGUF model as the LLM judge.
 
 # -- Model adapter -----------------------------------------------------------
-model:
-  adapter: stub
-  model_id: stub-v1
-  config:
-    latency_ms: 50
+adapters:
+  - adapter: stub
+    model_id: stub-v1
+    config:
+      latency_ms: 50
 
 # -- Attack generator --------------------------------------------------------
 generators:

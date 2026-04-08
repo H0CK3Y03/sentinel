@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - YAML is optional
 
 
 @dataclass
-class ManifestModel:
+class ManifestAdapter:
     """Model / adapter section of a manifest."""
     adapter: str = "stub"
     model_id: str = "stub-v1"
@@ -50,7 +50,7 @@ class Manifest:
     author: str = ""
     description: str = ""
 
-    model: ManifestModel = field(default_factory=ManifestModel)
+    adapters: List[ManifestAdapter] = field(default_factory=list)
     generators: List[ManifestGenerator] = field(default_factory=list)
     judges: List[ManifestJudge] = field(default_factory=lambda: [ManifestJudge()])
 
@@ -64,11 +64,16 @@ class Manifest:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Normalise generator list and ensure at least one generator exists."""
+        """Normalise component lists and ensure at least one adapter and generator exist."""
+        self.adapters = _normalise_adapters(self.adapters)
         self.generators = _normalise_generators(self.generators)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
+        adapter_dicts = [
+            {"adapter": a.adapter, "model_id": a.model_id, "config": a.config}
+            for a in self.adapters
+        ]
         generator_dicts = [
             {"name": g.name, "config": g.config}
             for g in self.generators
@@ -77,7 +82,7 @@ class Manifest:
             "experiment_id": self.experiment_id,
             "author": self.author,
             "description": self.description,
-            "model": {"adapter": self.model.adapter, "model_id": self.model.model_id, "config": self.model.config},
+            "adapters": adapter_dicts,
             "generators": generator_dicts,
             "judges": [{"name": j.name, "config": j.config} for j in self.judges],
             "seed": self.seed,
@@ -91,14 +96,22 @@ class Manifest:
 
 def _parse_raw(data: Dict[str, Any]) -> Manifest:
     """Build a `Manifest` from a raw dict."""
-    model_raw = data.get("model", {})
+    adapters_raw = data.get("adapters")
     generators_raw = data.get("generators")
     judge_list = data.get("judges", [{}])
 
-    model = ManifestModel(
-        adapter=model_raw.get("adapter", "stub"),
-        model_id=model_raw.get("model_id", "stub-v1"),
-        config=model_raw.get("config", {}),
+    adapters = _normalise_adapters(
+        [
+            ManifestAdapter(
+                adapter=a.get("adapter", "stub"),
+                model_id=a.get("model_id", "stub-v1"),
+                config=a.get("config", {}),
+            )
+            for a in adapters_raw
+            if isinstance(a, dict)
+        ]
+        if isinstance(adapters_raw, list)
+        else None
     )
     generators = _normalise_generators(
         [
@@ -121,7 +134,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
         author=data.get("author", ""),
         description=data.get("description", ""),
-        model=model,
+        adapters=adapters,
         generators=generators,
         judges=judges,
         seed=int(data.get("seed", 42)),
@@ -132,6 +145,17 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         output=data.get("output", "logs/experiment.jsonl"),
         raw=data,
     )
+
+
+def _normalise_adapters(adapters: List[ManifestAdapter] | None) -> List[ManifestAdapter]:
+    """Return a non-empty adapter list.
+
+    A manifest always needs at least one model adapter.  When none is
+    provided, use the built-in stub adapter as the default.
+    """
+    if adapters:
+        return list(adapters)
+    return [ManifestAdapter()]
 
 
 def _normalise_generators(generators: List[ManifestGenerator] | None) -> List[ManifestGenerator]:

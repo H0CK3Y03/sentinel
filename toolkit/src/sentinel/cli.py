@@ -55,11 +55,14 @@ def run(
         return
 
     typer.echo(f"[sentinel] Starting experiment {manifest.experiment_id}")
-    typer.echo(f"  adapter   : {manifest.model.adapter} ({manifest.model.model_id})")
+    adapter_names = ", ".join(adapter.adapter for adapter in manifest.adapters)
+    typer.echo(f"  adapters  : {adapter_names}")
     generator_names = ", ".join(generator.name for generator in manifest.generators)
     typer.echo(f"  generators: {generator_names}")
     typer.echo(f"  judges    : {[j.name for j in manifest.judges]}")
-    typer.echo(f"  batches   : {len(manifest.generators)} * {manifest.num_batches} * {manifest.batch_size}")
+    typer.echo(
+        f"  batches   : {len(manifest.adapters)} * {len(manifest.generators)} * {manifest.num_batches} * {manifest.batch_size}"
+    )
     typer.echo(f"  output    : {manifest.output}")
     typer.echo()
 

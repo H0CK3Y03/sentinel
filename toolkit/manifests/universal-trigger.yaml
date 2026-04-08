@@ -2,9 +2,9 @@ experiment_id: universal-trigger-test
 author: "LLM Red-Teaming Toolkit"
 description: "Test universal/transferable trigger attacks that elicit behaviour across models"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: universal-trigger

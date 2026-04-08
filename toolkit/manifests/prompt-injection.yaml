@@ -2,9 +2,9 @@ experiment_id: prompt-injection-test
 author: "LLM Red-Teaming Toolkit"
 description: "Test prompt injection attacks where user input overrides system instructions"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: prompt-injection

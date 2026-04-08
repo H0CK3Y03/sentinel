@@ -11,7 +11,7 @@ import pytest
 from sentinel.generators.base import AttackGenerator
 from sentinel.model_adapters.base import ModelAdapter
 from sentinel.judges.base import JudgeAdapter
-from sentinel.manifest import Manifest, ManifestModel, ManifestGenerator, ManifestJudge
+from sentinel.manifest import Manifest, ManifestAdapter, ManifestGenerator, ManifestJudge
 from sentinel.models import HealthStatus, JudgeType, ModelResponse, PromptCandidate, Verdict
 from sentinel.orchestrator import Orchestrator
 from sentinel.plugins import register_adapter, register_generator, register_judge
@@ -28,7 +28,7 @@ def default_manifest(tmp_log: Path) -> Manifest:
         experiment_id="test-001",
         author="test",
         description="unit test",
-        model=ManifestModel(adapter="stub", model_id="stub-v1"),
+        adapters=[ManifestAdapter(adapter="stub", model_id="stub-v1")],
         generators=[ManifestGenerator(name="stub-template", config={"seed": 42})],
         judges=[ManifestJudge(name="heuristic")],
         seed=42,
@@ -61,7 +61,7 @@ async def test_multiple_generators_multiply_batches(tmp_path: Path) -> None:
         experiment_id="multi-001",
         author="test",
         description="multi-generator test",
-        model=ManifestModel(adapter="stub", model_id="stub-v1"),
+        adapters=[ManifestAdapter(adapter="stub", model_id="stub-v1")],
         generators=[
             ManifestGenerator(name="static-generator-a"),
             ManifestGenerator(name="static-generator-b"),
@@ -141,7 +141,7 @@ async def test_batch_parallelism(tmp_path: Path) -> None:
         experiment_id="parallel-001",
         author="test",
         description="parallel execution test",
-        model=ManifestModel(adapter="parallel-test", model_id="parallel-test"),
+        adapters=[ManifestAdapter(adapter="parallel-test", model_id="parallel-test")],
         generators=[ManifestGenerator(name="stub-template", config={"seed": 1})],
         judges=[ManifestJudge(name="heuristic")],
         seed=1,
@@ -156,7 +156,7 @@ async def test_batch_parallelism(tmp_path: Path) -> None:
 
     assert summary.total_prompts == 4
     assert summary.total_errors == 0
-    assert orch.adapter.max_in_flight > 1
+    assert orch.adapters[0].max_in_flight > 1
 
 
 @pytest.mark.asyncio
@@ -205,7 +205,7 @@ async def test_final_verdict_uses_all_judges(tmp_path: Path) -> None:
         experiment_id="ensemble-001",
         author="test",
         description="ensemble verdict test",
-        model=ManifestModel(adapter="stub", model_id="stub-v1"),
+        adapters=[ManifestAdapter(adapter="stub", model_id="stub-v1")],
         generators=[ManifestGenerator(name="stub-template", config={"seed": 1})],
         judges=[
             ManifestJudge(name="always-compliance"),

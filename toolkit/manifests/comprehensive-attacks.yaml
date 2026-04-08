@@ -2,9 +2,9 @@ experiment_id: comprehensive-attacks-test
 author: "LLM Red-Teaming Toolkit"
 description: "Comprehensive test of all major attack types with detailed metric collection"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: single-turn-jailbreak

@@ -118,11 +118,14 @@ class Orchestrator:
         self.manifest = manifest
 
         # -- wire up components from the manifest ----------------------------
-        self.adapter: ModelAdapter = create_adapter(
-            name=manifest.model.adapter,
-            model_id=manifest.model.model_id,
-            config=manifest.model.config,
-        )
+        self.adapters: List[ModelAdapter] = [
+            create_adapter(
+                name=adapter.adapter,
+                model_id=adapter.model_id,
+                config=adapter.config,
+            )
+            for adapter in manifest.adapters
+        ]
         self.generators: List[AttackGenerator] = [
             create_generator(generator.name) for generator in manifest.generators
         ]
@@ -184,6 +187,7 @@ class Orchestrator:
 
     async def _execute_prompt(
         self,
+        adapter: ModelAdapter,
         prompt: PromptCandidate,
         experiment_id: str,
         rate_limiter: _AsyncRateLimiter,
@@ -191,7 +195,7 @@ class Orchestrator:
         await rate_limiter.acquire()
 
         try:
-            response = await self.adapter.generate(prompt.text)
+            response = await adapter.generate(prompt.text)
             response.prompt_id = prompt.prompt_id
 
             verdicts: List[Verdict] = []
@@ -231,14 +235,18 @@ class Orchestrator:
             raise
 
         # Health check
-        health = await self.adapter.health_check()
-        self.logger.log_event(
-            LogEvent(
-                event_type=EventType.INFO.value,
-                experiment_id=m.experiment_id,
-                data={"adapter_health": health.value},
+        for adapter, adapter_cfg in zip(self.adapters, m.adapters):
+            health = await adapter.health_check()
+            self.logger.log_event(
+                LogEvent(
+                    event_type=EventType.INFO.value,
+                    experiment_id=m.experiment_id,
+                    data={
+                        "adapter_name": adapter_cfg.adapter,
+                        "adapter_health": health.value,
+                    },
+                )
             )
-        )
 
         for judge in self.judges:
             judge_health = judge.health_check()
@@ -272,73 +280,80 @@ class Orchestrator:
         # Main loop: batches of prompts
         semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
         rate_limiter = _AsyncRateLimiter(m.rate_limit_rps)
-        for generator, generator_cfg in zip(self.generators, m.generators):
-            for batch_idx in range(m.num_batches):
-                prompts = generator.next(batch_size=m.batch_size)
+        for adapter, adapter_cfg in zip(self.adapters, m.adapters):
+            for generator, generator_cfg in zip(self.generators, m.generators):
+                for _batch_idx in range(m.num_batches):
+                    prompts = generator.next(batch_size=m.batch_size)
 
-                async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
-                    async with semaphore:
-                        return await self._execute_prompt(prompt, m.experiment_id, rate_limiter)
+                    async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
+                        async with semaphore:
+                            return await self._execute_prompt(
+                                adapter,
+                                prompt,
+                                m.experiment_id,
+                                rate_limiter,
+                            )
 
-                outcomes = await asyncio.gather(
-                    *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
-                )
+                    outcomes = await asyncio.gather(
+                        *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
+                    )
 
-                for outcome in outcomes:
-                    summary.total_prompts += 1
-                    if outcome.error is not None or outcome.response is None:
-                        summary.total_errors += 1
-                        self.logger.log_error(
-                            m.experiment_id,
-                            message=str(outcome.error) if outcome.error else "Unknown execution error",
-                            details={"prompt_id": outcome.prompt.prompt_id},
+                    for outcome in outcomes:
+                        summary.total_prompts += 1
+                        if outcome.error is not None or outcome.response is None:
+                            summary.total_errors += 1
+                            self.logger.log_error(
+                                m.experiment_id,
+                                message=str(outcome.error) if outcome.error else "Unknown execution error",
+                                details={"prompt_id": outcome.prompt.prompt_id},
+                            )
+                            continue
+
+                        final_verdict = self._aggregate_final_verdict(
+                            experiment_id=m.experiment_id,
+                            prompt=outcome.prompt,
+                            response=outcome.response,
+                            verdicts=outcome.verdicts,
                         )
-                        continue
 
-                    final_verdict = self._aggregate_final_verdict(
-                        experiment_id=m.experiment_id,
-                        prompt=outcome.prompt,
-                        response=outcome.response,
-                        verdicts=outcome.verdicts,
-                    )
+                        if "refusal" in final_verdict.labels:
+                            summary.total_refusals += 1
+                        elif "compliance" in final_verdict.labels:
+                            summary.total_compliances += 1
+                        else:
+                            summary.total_inconclusive += 1
 
-                    if "refusal" in final_verdict.labels:
-                        summary.total_refusals += 1
-                    elif "compliance" in final_verdict.labels:
-                        summary.total_compliances += 1
-                    else:
-                        summary.total_inconclusive += 1
+                        metadata = dict(outcome.prompt.metadata)
+                        attack_type = metadata.get("attack_type") or generator_cfg.name
+                        metadata.setdefault("attack_type", attack_type)
+                        metadata.setdefault("generator_name", generator_cfg.name)
+                        metadata.setdefault("adapter_name", adapter_cfg.adapter)
+                        enriched_prompt = PromptCandidate(
+                            prompt_id=outcome.prompt.prompt_id,
+                            text=outcome.prompt.text,
+                            metadata=metadata,
+                        )
 
-                    metadata = dict(outcome.prompt.metadata)
-                    attack_type = metadata.get("attack_type") or generator_cfg.name
-                    metadata.setdefault("attack_type", attack_type)
-                    metadata.setdefault("generator_name", generator_cfg.name)
-                    enriched_prompt = PromptCandidate(
-                        prompt_id=outcome.prompt.prompt_id,
-                        text=outcome.prompt.text,
-                        metadata=metadata,
-                    )
+                        # Record detailed metrics
+                        self.metrics_collector.record_trial(
+                            prompt=enriched_prompt,
+                            response=outcome.response,
+                            verdicts=outcome.verdicts,
+                            final_verdict=final_verdict,
+                            attack_type=attack_type,
+                        )
 
-                    # Record detailed metrics
-                    self.metrics_collector.record_trial(
-                        prompt=enriched_prompt,
-                        response=outcome.response,
-                        verdicts=outcome.verdicts,
-                        final_verdict=final_verdict,
-                        attack_type=attack_type,
-                    )
+                        # Allow adaptive generators to observe the response
+                        generator.update(outcome.prompt, outcome.response)
 
-                    # Allow adaptive generators to observe the response
-                    generator.update(outcome.prompt, outcome.response)
-
-                    # Persist in the original prompt order for reproducibility
-                    self.logger.log_trial(
-                        m.experiment_id,
-                        enriched_prompt,
-                        outcome.response,
-                        outcome.verdicts,
-                        final_verdict=final_verdict,
-                    )
+                        # Persist in the original prompt order for reproducibility
+                        self.logger.log_trial(
+                            m.experiment_id,
+                            enriched_prompt,
+                            outcome.response,
+                            outcome.verdicts,
+                            final_verdict=final_verdict,
+                        )
 
         summary.elapsed_seconds = time.perf_counter() - t0
 
@@ -361,6 +376,7 @@ class Orchestrator:
         # Log experiment end
         self.logger.log_experiment_end(m.experiment_id, summary.to_dict())
         self.logger.close()
-        await self.adapter.close()
+        for adapter in self.adapters:
+            await adapter.close()
 
         return summary

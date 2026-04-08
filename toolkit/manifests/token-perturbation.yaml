@@ -2,9 +2,9 @@ experiment_id: token-perturbation-test
 author: "LLM Red-Teaming Toolkit"
 description: "Test token perturbation attacks with subtle adversarial modifications"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: token-perturbation

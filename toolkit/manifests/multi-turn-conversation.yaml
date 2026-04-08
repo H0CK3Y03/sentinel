@@ -2,9 +2,9 @@ experiment_id: multi-turn-conversation-test
 author: "LLM Red-Teaming Toolkit"
 description: "Test multi-turn conversational attacks that gradually steer models toward harm"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: multi-turn-conversation

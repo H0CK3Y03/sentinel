@@ -127,7 +127,7 @@ from sentinel.plugins import register_adapter
 register_adapter("my-adapter", MyAdapter)
 ```
 
-Then reference `adapter: my-adapter` in your manifest.
+Then reference `adapters:` in your manifest and add `adapter: my-adapter` inside the entry.
 
 ## Local llama.cpp judge
 

@@ -7,14 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.manifest import load_manifest, Manifest
+from sentinel.manifest import Manifest, load_manifest
 
 
 def test_load_yaml(tmp_path: Path) -> None:
     p = tmp_path / "m.yaml"
     p.write_text(
         "experiment_id: yaml-test\n"
-        "model:\n  adapter: stub\n  model_id: stub-v1\n"
+        "adapters:\n"
+        "  - adapter: stub\n"
+        "    model_id: stub-v1\n"
         "generators:\n"
         "  - name: stub-template\n"
         "  - name: single-turn-jailbreak\n"
@@ -26,7 +28,7 @@ def test_load_yaml(tmp_path: Path) -> None:
     m = load_manifest(p)
     assert isinstance(m, Manifest)
     assert m.experiment_id == "yaml-test"
-    assert m.model.adapter == "stub"
+    assert m.adapters[0].adapter == "stub"
     assert len(m.generators) == 2
     assert m.generators[0].name == "stub-template"
 
@@ -35,7 +37,7 @@ def test_load_json(tmp_path: Path) -> None:
     p = tmp_path / "m.json"
     p.write_text(json.dumps({
         "experiment_id": "json-test",
-        "model": {"adapter": "stub"},
+        "adapters": [{"adapter": "stub"}],
         "batch_size": 2,
     }))
     m = load_manifest(p)

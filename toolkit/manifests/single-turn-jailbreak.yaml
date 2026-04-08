@@ -2,9 +2,9 @@ experiment_id: single-turn-jailbreak-test
 author: "LLM Red-Teaming Toolkit"
 description: "Test single-turn jailbreak attacks using various prompt-engineering techniques"
 
-model:
-  adapter: stub
-  model_id: stub-v1
+adapters:
+  - adapter: stub
+    model_id: stub-v1
 
 generators:
   - name: single-turn-jailbreak

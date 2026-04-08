@@ -6,12 +6,12 @@ description: >
   Baseline experiment using the stub adapter and built-in template attack generator.
   Demonstrates the full pipeline: generation -> inference -> hybrid judging -> JSONL logging.
 
-# -- Model adapter -----------------------------------------------------------
-model:
-  adapter: stub                # built-in mock adapter (no real LLM)
-  model_id: stub-v1
-  config:
-    latency_ms: 50             # simulated response latency
+# -- Model adapters ----------------------------------------------------------
+adapters:
+  - adapter: stub              # built-in mock adapter (no real LLM)
+    model_id: stub-v1
+    config:
+      latency_ms: 50           # simulated response latency
 
 # -- Attack generator --------------------------------------------------------
 generators:
