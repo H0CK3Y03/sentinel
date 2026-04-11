@@ -64,6 +64,35 @@ class JudgePerformanceReport:
 
 
 @dataclass
+class AdapterReport:
+    """Summary report for a specific model adapter."""
+    model_id: str
+    total_prompts: int
+    compliances: int
+    refusals: int
+    inconclusive: int
+    asr: float  # attack success rate
+    avg_confidence: float
+    avg_judge_agreement: float
+    avg_response_time_ms: float
+    avg_response_tokens: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "total_prompts": self.total_prompts,
+            "compliances": self.compliances,
+            "refusals": self.refusals,
+            "inconclusive": self.inconclusive,
+            "attack_success_rate": round(self.asr, 4),
+            "avg_confidence": round(self.avg_confidence, 4),
+            "avg_judge_agreement": round(self.avg_judge_agreement, 4),
+            "avg_response_time_ms": round(self.avg_response_time_ms, 2),
+            "avg_response_tokens": self.avg_response_tokens,
+        }
+
+
+@dataclass
 class ExperimentReport:
     """Comprehensive report for an entire experiment."""
     experiment_id: str
@@ -73,6 +102,7 @@ class ExperimentReport:
     overall_inconclusive_rate: float
     avg_judge_agreement: float
     attack_type_reports: Dict[str, AttackTypeReport]
+    adapter_reports: Dict[str, AdapterReport]
     judge_reports: Dict[str, JudgePerformanceReport]
     top_compliance_prompts: List[Dict[str, Any]]
     top_failure_prompts: List[Dict[str, Any]]
@@ -90,6 +120,9 @@ class ExperimentReport:
             "avg_judge_agreement": round(self.avg_judge_agreement, 4),
             "attack_type_reports": {
                 k: v.to_dict() for k, v in self.attack_type_reports.items()
+            },
+            "adapter_reports": {
+                k: v.to_dict() for k, v in self.adapter_reports.items()
             },
             "judge_reports": {
                 k: v.to_dict() for k, v in self.judge_reports.items()
@@ -141,6 +174,7 @@ class ExperimentAnalyzer:
 
         # Collect metrics by attack type
         attack_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        adapter_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         judge_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         all_compliances: List[Dict[str, Any]] = []
         all_refusals: List[Dict[str, Any]] = []
@@ -159,6 +193,9 @@ class ExperimentAnalyzer:
                 or prompt_metadata.get("generator_name")
                 or "unknown"
             )
+
+            # Track model/adapter ID (use "unknown" if not present)
+            model_id = response.get("model_id", "unknown")
 
             # Compute aggregate verdict from multiple judges
             # Simple aggregation: majority vote or consensus
@@ -196,9 +233,11 @@ class ExperimentAnalyzer:
                 "confidence": avg_verdict_confidence,
                 "response_time": response.get("latency_ms", 0),
                 "response_tokens": response.get("tokens", 0),
+                "judge_agreement": agreement if verdict_labels else 0.0,
             }
 
             attack_metrics[attack_type].append(trial_record)
+            adapter_metrics[model_id].append(trial_record)
 
             # Track judge verdicts
             for verdict in verdicts:
@@ -256,6 +295,31 @@ class ExperimentAnalyzer:
                 avg_response_tokens=avg_tokens,
             )
 
+        # Generate per-adapter reports
+        adapter_reports: Dict[str, AdapterReport] = {}
+        for model_id, metrics_list in adapter_metrics.items():
+            compliances = sum(1 for m in metrics_list if m["verdict"] == "compliance")
+            refusals = sum(1 for m in metrics_list if m["verdict"] == "refusal")
+            inconclusive = sum(1 for m in metrics_list if m["verdict"] == "inconclusive")
+            asr = compliances / len(metrics_list) if metrics_list else 0.0
+            avg_conf = sum(m["confidence"] for m in metrics_list) / len(metrics_list) if metrics_list else 0.0
+            avg_agreement = sum(m["judge_agreement"] for m in metrics_list) / len(metrics_list) if metrics_list else 0.0
+            avg_time = sum(m["response_time"] for m in metrics_list) / len(metrics_list) if metrics_list else 0.0
+            avg_tokens = int(sum(m["response_tokens"] for m in metrics_list) / len(metrics_list)) if metrics_list else 0
+
+            adapter_reports[model_id] = AdapterReport(
+                model_id=model_id,
+                total_prompts=len(metrics_list),
+                compliances=compliances,
+                refusals=refusals,
+                inconclusive=inconclusive,
+                asr=asr,
+                avg_confidence=avg_conf,
+                avg_judge_agreement=avg_agreement,
+                avg_response_time_ms=avg_time,
+                avg_response_tokens=avg_tokens,
+            )
+
         # Generate per-judge reports
         judge_reports: Dict[str, JudgePerformanceReport] = {}
         for judge_type, verdicts in judge_metrics.items():
@@ -293,6 +357,7 @@ class ExperimentAnalyzer:
             overall_inconclusive_rate=overall_inconclusive_rate,
             avg_judge_agreement=avg_judge_agreement,
             attack_type_reports=attack_type_reports,
+            adapter_reports=adapter_reports,
             judge_reports=judge_reports,
             top_compliance_prompts=top_compliance_prompts,
             top_failure_prompts=top_failure_prompts,
@@ -326,6 +391,16 @@ def print_report(report: ExperimentReport) -> None:
             print(f"    - Compliances: {atreport.compliances}")
             print(f"    - ASR:        {atreport.asr:.2%}")
             print(f"    - Avg Conf:   {atreport.avg_confidence:.2%}")
+
+    if report.adapter_reports:
+        print(f"\nAdapter/Model Breakdown:")
+        for model_id, areport in report.adapter_reports.items():
+            print(f"  {model_id}:")
+            print(f"    - Total:      {areport.total_prompts}")
+            print(f"    - Compliances: {areport.compliances}")
+            print(f"    - ASR:        {areport.asr:.2%}")
+            print(f"    - Avg Judge Agreement: {areport.avg_judge_agreement:.2%}")
+            print(f"    - Avg Response Time:   {areport.avg_response_time_ms:.2f} ms")
 
     if report.judge_reports:
         print(f"\nJudge Performance:")

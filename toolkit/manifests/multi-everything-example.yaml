@@ -1,0 +1,102 @@
+################################################################################
+# MULTI-EVERYTHING EXAMPLE MANIFEST
+#
+# Demonstrates the full cross-product of the manifest model:
+#   adapters × generators × judges × batches
+#
+# This example is intentionally broader than a simple multi-adapter manifest.
+# It shows multiple adapters, multiple generators, multiple judges, and the
+# global run controls that shape execution.
+################################################################################
+
+experiment_id: "multi-everything-001"
+author: "Adam Veselý"
+description: >
+  Comprehensive experiment showing how to combine multiple adapters, multiple
+  generators, and multiple judges in one run. Useful as a reference for how
+  Sentinel expands a manifest into the full execution cross-product and how the
+  resulting logs are broken down by adapter and attack type.
+
+
+# MODEL ADAPTERS
+# ============================================================================
+# Each adapter represents a model endpoint or backend configuration.
+
+adapters:
+  - adapter: "stub"
+    model_id: "stub-v1"
+    config:
+      latency_ms: 50
+      # [OPTIONAL] Adapter-specific settings. For the stub adapter this is just
+      # simulated latency, but real adapters may include model_path, api_key,
+      # temperature, max_tokens, n_ctx, and similar backend options.
+
+  - adapter: "stub"
+    model_id: "stub-v2"
+    config:
+      latency_ms: 100
+      # Second adapter to show model-level comparison in metrics_by_adapter.
+
+
+# ATTACK GENERATORS
+# ============================================================================
+# Each generator defines a different attack strategy. Every generator is run
+# against every adapter.
+
+generators:
+  - name: "stub-template"
+    config:
+      seed: 42
+      # [OPTIONAL] Generator seed. If omitted, the manifest-level seed is used.
+
+  - name: "prompt-injection"
+    config:
+      seed: 43
+      # Example of a different attack family.
+
+  - name: "universal-trigger"
+    config:
+      seed: 44
+      # Example of a trigger-based generator.
+
+
+# JUDGE PIPELINE
+# ============================================================================
+# Judges are ordered and their verdicts are aggregated into a final verdict.
+
+judges:
+  - name: "heuristic"
+    config:
+      refusal_threshold: 1
+      compliance_threshold: 1
+      # [OPTIONAL] Rule-based thresholds for the heuristic judge.
+
+  - name: "stub-judge"
+    config: {}
+    # [OPTIONAL] A second judge layer to show multi-judge evaluation.
+
+
+# EXECUTION PARAMETERS
+# ============================================================================
+# These are the global run controls shared by all components.
+
+seed: 42
+batch_size: 8
+num_batches: 2
+max_concurrency: 4
+rate_limit_rps: 0
+
+
+# OUTPUT
+# ============================================================================
+
+output: "logs/multi-everything-001.jsonl"
+# Expected total prompts:
+#   2 adapters × 3 generators × 2 batches × 8 prompts = 96
+#
+# The resulting log and report will include:
+#   - metrics_by_adapter
+#   - metrics_by_attack_type
+#   - metrics_by_judge
+#   - top compliance and refusal prompts
+#   - elapsed time and aggregate verdict distribution

@@ -12,7 +12,7 @@ import json
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, TypeVar
 
 try:
     import yaml  # type: ignore[import-untyped]
@@ -27,6 +27,13 @@ class ManifestAdapter:
     model_id: str = "stub-v1"
     config: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "adapter": self.adapter,
+            "model_id": self.model_id,
+            "config": self.config,
+        }
+
 
 @dataclass
 class ManifestGenerator:
@@ -34,12 +41,24 @@ class ManifestGenerator:
     name: str = "stub-template"
     config: Dict[str, Any] = field(default_factory=dict)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "config": self.config,
+        }
+
 
 @dataclass
 class ManifestJudge:
     """Single judge entry in the judge pipeline."""
     name: str = "heuristic"
     config: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "config": self.config,
+        }
 
 
 @dataclass
@@ -70,21 +89,13 @@ class Manifest:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
-        adapter_dicts = [
-            {"adapter": a.adapter, "model_id": a.model_id, "config": a.config}
-            for a in self.adapters
-        ]
-        generator_dicts = [
-            {"name": g.name, "config": g.config}
-            for g in self.generators
-        ]
         return {
             "experiment_id": self.experiment_id,
             "author": self.author,
             "description": self.description,
-            "adapters": adapter_dicts,
-            "generators": generator_dicts,
-            "judges": [{"name": j.name, "config": j.config} for j in self.judges],
+            "adapters": [adapter.to_dict() for adapter in self.adapters],
+            "generators": [generator.to_dict() for generator in self.generators],
+            "judges": [judge.to_dict() for judge in self.judges],
             "seed": self.seed,
             "batch_size": self.batch_size,
             "num_batches": self.num_batches,
@@ -101,34 +112,31 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     judge_list = data.get("judges", [{}])
 
     adapters = _normalise_adapters(
-        [
-            ManifestAdapter(
-                adapter=a.get("adapter", "stub"),
-                model_id=a.get("model_id", "stub-v1"),
-                config=a.get("config", {}),
-            )
-            for a in adapters_raw
-            if isinstance(a, dict)
-        ]
-        if isinstance(adapters_raw, list)
-        else None
+        _parse_component_list(
+            adapters_raw,
+            lambda item: ManifestAdapter(
+                adapter=item.get("adapter", "stub"),
+                model_id=item.get("model_id", "stub-v1"),
+                config=item.get("config", {}),
+            ),
+        )
     )
     generators = _normalise_generators(
-        [
-            ManifestGenerator(
-                name=g.get("name", "stub-template"),
-                config=g.get("config", {}),
-            )
-            for g in generators_raw
-            if isinstance(g, dict)
-        ]
-        if isinstance(generators_raw, list)
-        else None
+        _parse_component_list(
+            generators_raw,
+            lambda item: ManifestGenerator(
+                name=item.get("name", "stub-template"),
+                config=item.get("config", {}),
+            ),
+        )
     )
-    judges = [
-        ManifestJudge(name=j.get("name", "heuristic"), config=j.get("config", {}))
-        for j in (judge_list if isinstance(judge_list, list) else [judge_list])
-    ]
+    judges = _parse_component_list(
+        judge_list,
+        lambda item: ManifestJudge(
+            name=item.get("name", "heuristic"),
+            config=item.get("config", {}),
+        ),
+    ) or [ManifestJudge()]
 
     return Manifest(
         experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
@@ -167,6 +175,19 @@ def _normalise_generators(generators: List[ManifestGenerator] | None) -> List[Ma
     if generators:
         return list(generators)
     return [ManifestGenerator()]
+
+
+T = TypeVar("T")
+
+
+def _parse_component_list(
+    raw_items: Any,
+    builder: Callable[[Dict[str, Any]], T],
+) -> List[T] | None:
+    """Parse a list of manifest components while skipping malformed entries."""
+    if not isinstance(raw_items, list):
+        return None
+    return [builder(item) for item in raw_items if isinstance(item, dict)]
 
 
 def load_manifest(path: str | Path) -> Manifest:
