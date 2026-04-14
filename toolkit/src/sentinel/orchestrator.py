@@ -123,14 +123,15 @@ class Orchestrator:
                 name=adapter.adapter,
                 model_id=adapter.model_id,
                 config=adapter.config,
+                instance_id=adapter.instance_id,
             )
             for adapter in manifest.adapters
         ]
         self.generators: List[AttackGenerator] = [
-            create_generator(generator.name) for generator in manifest.generators
+            create_generator(generator.name, instance_id=generator.instance_id) for generator in manifest.generators
         ]
         self.judges: List[JudgeAdapter] = [
-            create_judge(j.name) for j in manifest.judges
+            create_judge(judge.name, instance_id=judge.instance_id) for judge in manifest.judges
         ]
         self.logger = JsonlLogger(manifest.output)
         self.metrics_collector = MetricsCollector()
@@ -179,6 +180,7 @@ class Orchestrator:
             experiment_id=experiment_id,
             prompt_id=prompt.prompt_id,
             model_id=response.model_id,
+            judge_instance_id="ensemble",
             labels=[winning_label],
             confidence=round(confidence, 4),
             judge_type="ensemble",
@@ -197,11 +199,13 @@ class Orchestrator:
         try:
             response = await adapter.generate(prompt.text)
             response.prompt_id = prompt.prompt_id
+            response.adapter_instance_id = getattr(adapter, "instance_id", "")
 
             verdicts: List[Verdict] = []
             for judge in self.judges:
                 verdict = judge.evaluate(response, prompt)
                 verdict.experiment_id = experiment_id
+                verdict.judge_instance_id = getattr(judge, "instance_id", "")
                 verdicts.append(verdict)
 
             return _TrialOutcome(prompt=prompt, response=response, verdicts=verdicts)
@@ -327,7 +331,9 @@ class Orchestrator:
                         attack_type = metadata.get("attack_type") or generator_cfg.name
                         metadata.setdefault("attack_type", attack_type)
                         metadata.setdefault("generator_name", generator_cfg.name)
+                        metadata.setdefault("generator_instance_id", generator_cfg.instance_id)
                         metadata.setdefault("adapter_name", adapter_cfg.adapter)
+                        metadata.setdefault("adapter_instance_id", adapter_cfg.instance_id)
                         enriched_prompt = PromptCandidate(
                             prompt_id=outcome.prompt.prompt_id,
                             text=outcome.prompt.text,

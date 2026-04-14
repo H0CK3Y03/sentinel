@@ -148,28 +148,39 @@ def list_judges() -> list[str]:
 # Factory functions used by the orchestrator
 # ---------------------------------------------------------------------------
 
-def create_adapter(name: str, model_id: str, config: Dict[str, Any] | None = None) -> ModelAdapter:
+def create_adapter(
+    name: str,
+    model_id: str,
+    config: Dict[str, Any] | None = None,
+    instance_id: str = "",
+) -> ModelAdapter:
     cls = _ADAPTER_REGISTRY.get(name) or _discover_adapters().get(name)
     if cls is None:
         raise KeyError(
             f"Unknown adapter '{name}'.  Available: {list_adapters()}"
         )
-    return cls(model_id=model_id, config=config)
+    adapter = cls(model_id=model_id, config=config)
+    adapter.instance_id = instance_id
+    return adapter
 
 
-def create_generator(name: str) -> AttackGenerator:
+def create_generator(name: str, instance_id: str = "") -> AttackGenerator:
     cls = _GENERATOR_REGISTRY.get(name) or _discover_generators().get(name)
     if cls is None:
         raise KeyError(
             f"Unknown generator '{name}'.  Available: {list_generators()}"
         )
-    return cls(name=name)
+    generator = cls(name=name)
+    generator.instance_id = instance_id
+    return generator
 
 
-def create_judge(name: str) -> JudgeAdapter:
+def create_judge(name: str, instance_id: str = "") -> JudgeAdapter:
     cls = _JUDGE_REGISTRY.get(name) or _discover_judges().get(name)
     if cls is None:
         raise KeyError(
             f"Unknown judge '{name}'.  Available: {list_judges()}"
         )
-    return cls(name=name)
+    judge = cls(name=name)
+    judge.instance_id = instance_id
+    return judge

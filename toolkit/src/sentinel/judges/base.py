@@ -29,9 +29,15 @@ class JudgeAdapter(ABC):
         Category label written into every verdict.
     """
 
-    def __init__(self, name: str = "base", judge_type: JudgeType = JudgeType.HEURISTIC) -> None:
+    def __init__(
+        self,
+        name: str = "base",
+        judge_type: JudgeType = JudgeType.HEURISTIC,
+        instance_id: str = "",
+    ) -> None:
         self.name = name
         self.judge_type = judge_type
+        self.instance_id = instance_id
         self._configured = False
 
     # -- required interface ---------------------------------------------------

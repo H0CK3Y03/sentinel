@@ -20,15 +20,21 @@ except ImportError:  # pragma: no cover - YAML is optional
     yaml = None  # type: ignore[assignment]
 
 
+def _new_instance_id(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
 @dataclass
 class ManifestAdapter:
     """Model / adapter section of a manifest."""
+    instance_id: str = field(default_factory=lambda: _new_instance_id("adapter"))
     adapter: str = "stub"
     model_id: str = "stub-v1"
     config: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "instance_id": self.instance_id,
             "adapter": self.adapter,
             "model_id": self.model_id,
             "config": self.config,
@@ -38,11 +44,13 @@ class ManifestAdapter:
 @dataclass
 class ManifestGenerator:
     """Attack generator section of a manifest."""
+    instance_id: str = field(default_factory=lambda: _new_instance_id("generator"))
     name: str = "stub-template"
     config: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "instance_id": self.instance_id,
             "name": self.name,
             "config": self.config,
         }
@@ -51,11 +59,13 @@ class ManifestGenerator:
 @dataclass
 class ManifestJudge:
     """Single judge entry in the judge pipeline."""
+    instance_id: str = field(default_factory=lambda: _new_instance_id("judge"))
     name: str = "heuristic"
     config: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "instance_id": self.instance_id,
             "name": self.name,
             "config": self.config,
         }
@@ -84,6 +94,37 @@ class Manifest:
 
     def __post_init__(self) -> None:
         """Normalise component lists and ensure at least one adapter and generator exist."""
+        self.adapters = [
+            adapter
+            if adapter.instance_id
+            else ManifestAdapter(
+                instance_id=_new_instance_id("adapter"),
+                adapter=adapter.adapter,
+                model_id=adapter.model_id,
+                config=adapter.config,
+            )
+            for adapter in self.adapters
+        ]
+        self.generators = [
+            generator
+            if generator.instance_id
+            else ManifestGenerator(
+                instance_id=_new_instance_id("generator"),
+                name=generator.name,
+                config=generator.config,
+            )
+            for generator in self.generators
+        ]
+        self.judges = [
+            judge
+            if judge.instance_id
+            else ManifestJudge(
+                instance_id=_new_instance_id("judge"),
+                name=judge.name,
+                config=judge.config,
+            )
+            for judge in self.judges
+        ]
         self.adapters = _normalise_adapters(self.adapters)
         self.generators = _normalise_generators(self.generators)
 
@@ -115,6 +156,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         _parse_component_list(
             adapters_raw,
             lambda item: ManifestAdapter(
+                instance_id=item.get("instance_id", _new_instance_id("adapter")),
                 adapter=item.get("adapter", "stub"),
                 model_id=item.get("model_id", "stub-v1"),
                 config=item.get("config", {}),
@@ -125,6 +167,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         _parse_component_list(
             generators_raw,
             lambda item: ManifestGenerator(
+                instance_id=item.get("instance_id", _new_instance_id("generator")),
                 name=item.get("name", "stub-template"),
                 config=item.get("config", {}),
             ),
@@ -133,6 +176,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     judges = _parse_component_list(
         judge_list,
         lambda item: ManifestJudge(
+            instance_id=item.get("instance_id", _new_instance_id("judge")),
             name=item.get("name", "heuristic"),
             config=item.get("config", {}),
         ),

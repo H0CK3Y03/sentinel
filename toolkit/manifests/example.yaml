@@ -45,6 +45,8 @@ description: >
 adapters:
   # Adapter 1: Stub (mock) adapter
   - adapter: "stub"
+    # [OPTIONAL] Instance identifier for this adapter entry.
+    # If omitted, Sentinel generates one automatically (adapter-<8 hex chars>).
     # [REQUIRED] Type of adapter: stub | llama_cpp | openai | anthropic | ...
     # "stub" = mock adapter for testing (always returns templated response)
     
@@ -88,6 +90,8 @@ adapters:
 generators:
   # Generator 1: Template-based
   - name: "stub-template"
+    # [OPTIONAL] Instance identifier for this generator entry.
+    # If omitted, Sentinel generates one automatically (generator-<8 hex chars>).
     # [REQUIRED] Generator identifier: stub-template | single-turn-jailbreak | 
     #            prompt-injection | multi-turn | ...
     # The orchestrator will cross all adapters with all generators,
@@ -126,6 +130,8 @@ generators:
 judges:
   # Judge 1: Heuristic layer (keyword/regex based)
   - name: "heuristic"
+    # [OPTIONAL] Instance identifier for this judge entry.
+    # If omitted, Sentinel generates one automatically (judge-<8 hex chars>).
     # [REQUIRED] Judge identifier: heuristic | llm | classifier | ...
     # "heuristic" = rule-based detection (fast, lightweight)
     # "llm" = LLM-based judging (accurate but slower)

@@ -85,6 +85,8 @@ async def test_multiple_generators_multiply_batches(tmp_path: Path) -> None:
         "static-generator-b",
     }
     assert all("generator_name" in trial["data"]["prompt"]["metadata"] for trial in trials)
+    assert all("generator_instance_id" in trial["data"]["prompt"]["metadata"] for trial in trials)
+    assert all("adapter_instance_id" in trial["data"]["prompt"]["metadata"] for trial in trials)
 
 
 @pytest.mark.asyncio

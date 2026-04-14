@@ -21,8 +21,9 @@ class AttackGenerator(ABC):
         Human-readable identifier for this generator instance.
     """
 
-    def __init__(self, name: str = "base") -> None:
+    def __init__(self, name: str = "base", instance_id: str = "") -> None:
         self.name = name
+        self.instance_id = instance_id
         self._configured = False
 
     # -- required interface ---------------------------------------------------

@@ -33,6 +33,8 @@ class TrialMetrics:
     judge_agreement: float = 0.0  # [0, 1] measure of consensus
     attack_type: str = ""  # e.g., "single-turn", "prompt-injection", etc.
     model_id: str = ""
+    adapter_instance_id: str = ""
+    generator_instance_id: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -48,6 +50,8 @@ class TrialMetrics:
             "judge_agreement": round(self.judge_agreement, 4),
             "attack_type": self.attack_type,
             "model_id": self.model_id,
+            "adapter_instance_id": self.adapter_instance_id,
+            "generator_instance_id": self.generator_instance_id,
         }
 
     @staticmethod
@@ -108,6 +112,9 @@ class AggregateMetrics:
     # Per-attack-type breakdown
     metrics_by_attack_type: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
+    # Per-generator-instance breakdown
+    metrics_by_generator: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
     # Per-adapter breakdown (model-indexed metrics)
     metrics_by_adapter: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -139,6 +146,7 @@ class AggregateMetrics:
             "avg_response_tokens": self.avg_response_tokens,
             "median_response_tokens": self.median_response_tokens,
             "metrics_by_attack_type": self.metrics_by_attack_type,
+            "metrics_by_generator": self.metrics_by_generator,
             "metrics_by_adapter": self.metrics_by_adapter,
             "metrics_by_judge": self.metrics_by_judge,
             "verdict_distribution": self.verdict_distribution,
@@ -191,6 +199,8 @@ class MetricsCollector:
             judge_agreement=judge_agreement,
             attack_type=attack_type,
             model_id=response.model_id,
+            adapter_instance_id=response.adapter_instance_id,
+            generator_instance_id=prompt.metadata.get("generator_instance_id", ""),
         )
 
         self.trials.append(trial)
@@ -285,10 +295,34 @@ class MetricsCollector:
                 "asr": round(asr_for_type, 4),
             }
 
+        # Metrics by generator instance
+        generators: Dict[str, List[TrialMetrics]] = {}
+        for trial in self.trials:
+            generator_id = trial.generator_instance_id or trial.attack_type or "unknown"
+            if generator_id not in generators:
+                generators[generator_id] = []
+            generators[generator_id].append(trial)
+
+        for generator_id, trials in generators.items():
+            count_compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
+            count_refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
+            asr_for_generator = count_compliance / len(trials) if trials else 0.0
+            avg_agreement = statistics.mean([t.judge_agreement for t in trials]) if trials else 0.0
+            response_times = [t.response_time_ms for t in trials if t.response_time_ms > 0]
+            avg_response_time = statistics.mean(response_times) if response_times else 0.0
+            agg.metrics_by_generator[generator_id] = {
+                "total": len(trials),
+                "compliance": count_compliance,
+                "refusal": count_refusal,
+                "asr": round(asr_for_generator, 4),
+                "avg_judge_agreement": round(avg_agreement, 4),
+                "avg_response_time_ms": round(avg_response_time, 2),
+            }
+
         # Metrics by adapter (model-indexed breakdown)
         adapters: Dict[str, List[TrialMetrics]] = {}
         for trial in self.trials:
-            adapter_id = trial.model_id or "unknown"
+            adapter_id = trial.adapter_instance_id or trial.model_id or "unknown"
             if adapter_id not in adapters:
                 adapters[adapter_id] = []
             adapters[adapter_id].append(trial)
@@ -313,18 +347,19 @@ class MetricsCollector:
         judge_names: Dict[str, List[Verdict]] = {}
         for trial in self.trials:
             for verdict in trial.verdicts:
-                if verdict.judge_type not in judge_names:
-                    judge_names[verdict.judge_type] = []
-                judge_names[verdict.judge_type].append(verdict)
+                judge_id = verdict.judge_instance_id or verdict.judge_type or "unknown"
+                if judge_id not in judge_names:
+                    judge_names[judge_id] = []
+                judge_names[judge_id].append(verdict)
 
-        for judge_type, verdicts in judge_names.items():
+        for judge_id, verdicts in judge_names.items():
             count_compliance = sum(
                 1 for v in verdicts if "compliance" in v.labels
             )
             count_refusal = sum(
                 1 for v in verdicts if "refusal" in v.labels
             )
-            agg.metrics_by_judge[judge_type] = {
+            agg.metrics_by_judge[judge_id] = {
                 "total_verdicts": len(verdicts),
                 "compliance": count_compliance,
                 "refusal": count_refusal,

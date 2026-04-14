@@ -44,6 +44,43 @@ def test_load_json(tmp_path: Path) -> None:
     assert m.experiment_id == "json-test"
 
 
+def test_instance_ids_are_generated_when_missing(tmp_path: Path) -> None:
+    p = tmp_path / "generated.yaml"
+    p.write_text(
+        "experiment_id: generated-test\n"
+        "adapters:\n"
+        "  - adapter: stub\n"
+        "generators:\n"
+        "  - name: stub-template\n"
+        "judges:\n"
+        "  - name: heuristic\n"
+    )
+    m = load_manifest(p)
+    assert m.adapters[0].instance_id.startswith("adapter-")
+    assert m.generators[0].instance_id.startswith("generator-")
+    assert m.judges[0].instance_id.startswith("judge-")
+
+
+def test_instance_ids_are_preserved_when_explicit(tmp_path: Path) -> None:
+    p = tmp_path / "explicit.yaml"
+    p.write_text(
+        "experiment_id: explicit-test\n"
+        "adapters:\n"
+        "  - instance_id: adapter-a\n"
+        "    adapter: stub\n"
+        "generators:\n"
+        "  - instance_id: generator-a\n"
+        "    name: stub-template\n"
+        "judges:\n"
+        "  - instance_id: judge-a\n"
+        "    name: heuristic\n"
+    )
+    m = load_manifest(p)
+    assert m.adapters[0].instance_id == "adapter-a"
+    assert m.generators[0].instance_id == "generator-a"
+    assert m.judges[0].instance_id == "judge-a"
+
+
 def test_default_generator_fallback(tmp_path: Path) -> None:
     p = tmp_path / "legacy.yaml"
     p.write_text(

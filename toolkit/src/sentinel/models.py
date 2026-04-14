@@ -74,6 +74,7 @@ class ModelResponse:
     response_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     prompt_id: str = ""
     model_id: str = ""
+    adapter_instance_id: str = ""
     text: str = ""
     tokens: int = 0
     latency_ms: float = 0.0
@@ -93,6 +94,7 @@ class Verdict:
     experiment_id: str = ""
     prompt_id: str = ""
     model_id: str = ""
+    judge_instance_id: str = ""
     trace_id: str = ""
     labels: List[str] = field(default_factory=list)
     confidence: float = 0.0

@@ -28,9 +28,15 @@ class ModelAdapter(ABC):
         Backend-specific options forwarded from the experiment manifest.
     """
 
-    def __init__(self, model_id: str, config: Dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        model_id: str,
+        config: Dict[str, Any] | None = None,
+        instance_id: str = "",
+    ) -> None:
         self.model_id = model_id
         self.config: Dict[str, Any] = config or {}
+        self.instance_id = instance_id
 
     # -- required interface ---------------------------------------------------
 
