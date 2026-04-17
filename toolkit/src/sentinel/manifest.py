@@ -95,38 +95,17 @@ class Manifest:
     def __post_init__(self) -> None:
         """Normalise component lists and ensure at least one adapter and generator exist."""
         self.adapters = [
-            adapter
-            if adapter.instance_id
-            else ManifestAdapter(
-                instance_id=_new_instance_id("adapter"),
-                adapter=adapter.adapter,
-                model_id=adapter.model_id,
-                config=adapter.config,
-            )
-            for adapter in self.adapters
+            _ensure_adapter_instance_id(adapter) for adapter in self.adapters
         ]
         self.generators = [
-            generator
-            if generator.instance_id
-            else ManifestGenerator(
-                instance_id=_new_instance_id("generator"),
-                name=generator.name,
-                config=generator.config,
-            )
-            for generator in self.generators
+            _ensure_generator_instance_id(generator) for generator in self.generators
         ]
         self.judges = [
-            judge
-            if judge.instance_id
-            else ManifestJudge(
-                instance_id=_new_instance_id("judge"),
-                name=judge.name,
-                config=judge.config,
-            )
-            for judge in self.judges
+            _ensure_judge_instance_id(judge) for judge in self.judges
         ]
         self.adapters = _normalise_adapters(self.adapters)
         self.generators = _normalise_generators(self.generators)
+        self.judges = _normalise_judges(self.judges)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
@@ -156,7 +135,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         _parse_component_list(
             adapters_raw,
             lambda item: ManifestAdapter(
-                instance_id=item.get("instance_id", _new_instance_id("adapter")),
+                instance_id=item.get("instance_id") or _new_instance_id("adapter"),
                 adapter=item.get("adapter", "stub"),
                 model_id=item.get("model_id", "stub-v1"),
                 config=item.get("config", {}),
@@ -167,7 +146,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         _parse_component_list(
             generators_raw,
             lambda item: ManifestGenerator(
-                instance_id=item.get("instance_id", _new_instance_id("generator")),
+                instance_id=item.get("instance_id") or _new_instance_id("generator"),
                 name=item.get("name", "stub-template"),
                 config=item.get("config", {}),
             ),
@@ -176,11 +155,11 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     judges = _parse_component_list(
         judge_list,
         lambda item: ManifestJudge(
-            instance_id=item.get("instance_id", _new_instance_id("judge")),
+            instance_id=item.get("instance_id") or _new_instance_id("judge"),
             name=item.get("name", "heuristic"),
             config=item.get("config", {}),
         ),
-    ) or [ManifestJudge()]
+    )
 
     return Manifest(
         experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
@@ -219,6 +198,48 @@ def _normalise_generators(generators: List[ManifestGenerator] | None) -> List[Ma
     if generators:
         return list(generators)
     return [ManifestGenerator()]
+
+
+def _normalise_judges(judges: List[ManifestJudge] | None) -> List[ManifestJudge]:
+    """Return a non-empty judge list.
+
+    A manifest always needs at least one judge. When none is provided, use the
+    built-in heuristic judge as the default.
+    """
+    if judges:
+        return list(judges)
+    return [ManifestJudge()]
+
+
+def _ensure_adapter_instance_id(adapter: ManifestAdapter) -> ManifestAdapter:
+    if adapter.instance_id:
+        return adapter
+    return ManifestAdapter(
+        instance_id=_new_instance_id("adapter"),
+        adapter=adapter.adapter,
+        model_id=adapter.model_id,
+        config=adapter.config,
+    )
+
+
+def _ensure_generator_instance_id(generator: ManifestGenerator) -> ManifestGenerator:
+    if generator.instance_id:
+        return generator
+    return ManifestGenerator(
+        instance_id=_new_instance_id("generator"),
+        name=generator.name,
+        config=generator.config,
+    )
+
+
+def _ensure_judge_instance_id(judge: ManifestJudge) -> ManifestJudge:
+    if judge.instance_id:
+        return judge
+    return ManifestJudge(
+        instance_id=_new_instance_id("judge"),
+        name=judge.name,
+        config=judge.config,
+    )
 
 
 T = TypeVar("T")

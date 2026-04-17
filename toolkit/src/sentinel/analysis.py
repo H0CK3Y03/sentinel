@@ -212,7 +212,9 @@ class ExperimentAnalyzer:
         # Collect metrics by attack type
         attack_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         generator_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        generator_names: Dict[str, str] = {}
         adapter_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        adapter_models: Dict[str, str] = {}
         judge_metrics: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         all_compliances: List[Dict[str, Any]] = []
         all_refusals: List[Dict[str, Any]] = []
@@ -234,6 +236,7 @@ class ExperimentAnalyzer:
             generator_name = prompt_metadata.get("generator_name") or attack_type
 
             generator_instance_id = prompt_metadata.get("generator_instance_id") or attack_type
+            generator_names.setdefault(generator_instance_id, generator_name)
 
             # Track model/adapter ID (use "unknown" if not present)
             adapter_instance_id = response.get("adapter_instance_id") or response.get("model_id", "unknown")
@@ -280,12 +283,14 @@ class ExperimentAnalyzer:
             attack_metrics[attack_type].append(trial_record)
             generator_metrics[generator_instance_id].append(trial_record)
             adapter_metrics[adapter_instance_id].append(trial_record)
+            adapter_models.setdefault(adapter_instance_id, response.get("model_id", adapter_instance_id))
 
             # Track judge verdicts
             for verdict in verdicts:
-                judge_type = verdict.get("judge_type", "unknown")
-                judge_metrics[judge_type].append({
-                    "judge_type": judge_type,
+                judge_instance_id = verdict.get("judge_instance_id") or verdict.get("judge_type", "unknown")
+                judge_metrics[judge_instance_id].append({
+                    "judge_instance_id": judge_instance_id,
+                    "judge_type": verdict.get("judge_type", "unknown"),
                     "label": verdict.get("labels", ["inconclusive"])[0],
                     "confidence": verdict.get("confidence", 0.0),
                 })
@@ -351,7 +356,7 @@ class ExperimentAnalyzer:
 
             generator_reports[generator_id] = GeneratorReport(
                 instance_id=generator_id,
-                name=generator_name if generator_id == generator_instance_id else generator_id,
+                name=generator_names.get(generator_id, generator_id),
                 total_prompts=len(metrics_list),
                 compliances=compliances,
                 refusals=refusals,
@@ -364,7 +369,7 @@ class ExperimentAnalyzer:
 
         # Generate per-adapter reports
         adapter_reports: Dict[str, AdapterReport] = {}
-        for model_id, metrics_list in adapter_metrics.items():
+        for adapter_id, metrics_list in adapter_metrics.items():
             compliances = sum(1 for m in metrics_list if m["verdict"] == "compliance")
             refusals = sum(1 for m in metrics_list if m["verdict"] == "refusal")
             inconclusive = sum(1 for m in metrics_list if m["verdict"] == "inconclusive")
@@ -374,9 +379,9 @@ class ExperimentAnalyzer:
             avg_time = sum(m["response_time"] for m in metrics_list) / len(metrics_list) if metrics_list else 0.0
             avg_tokens = int(sum(m["response_tokens"] for m in metrics_list) / len(metrics_list)) if metrics_list else 0
 
-            adapter_reports[model_id] = AdapterReport(
-                instance_id=model_id,
-                model_id=model_id,
+            adapter_reports[adapter_id] = AdapterReport(
+                instance_id=adapter_id,
+                model_id=adapter_models.get(adapter_id, adapter_id),
                 total_prompts=len(metrics_list),
                 compliances=compliances,
                 refusals=refusals,
