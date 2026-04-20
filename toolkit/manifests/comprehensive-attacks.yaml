@@ -5,6 +5,7 @@ description: "Comprehensive test of all major attack types with detailed metric 
 adapters:
   - adapter: stub
     model_id: stub-v1
+  - adapter: llama-cpp
 
 generators:
   - name: single-turn-jailbreak
@@ -22,15 +23,21 @@ generators:
   - name: multi-turn-conversation
     config:
       seed: 42
+  - name: llama-cpp-attacker
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 judges:
   - name: heuristic
     config:
       refusal_threshold: 1
       compliance_threshold: 1
+  - name: llama-cpp-judge
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 batch_size: 16
-num_batches: 1
+num_batches: 2
 max_concurrency: 8
 rate_limit_rps: 0  # No rate limit for local testing
 output: "logs/comprehensive-attacks.jsonl"

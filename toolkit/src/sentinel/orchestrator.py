@@ -224,21 +224,37 @@ class Orchestrator:
         # still leave an audit trail in the JSONL output.
         self.logger.log_experiment_start(m.experiment_id, m.to_dict())
 
-        # Configure components
-        try:
-            for generator, generator_cfg in zip(self.generators, m.generators):
+        # Phase 1: Configure all components and collect errors
+        config_errors: Dict[str, str] = {}
+        
+        for generator, generator_cfg in zip(self.generators, m.generators):
+            try:
                 generator.configure({"seed": m.seed, **generator_cfg.config})
-            for judge, jcfg in zip(self.judges, m.judges):
+            except Exception as exc:
+                config_errors[f"generator:{generator_cfg.instance_id}"] = str(exc)
+        
+        for judge, jcfg in zip(self.judges, m.judges):
+            try:
                 judge.configure(jcfg.config)
-        except Exception as exc:
+            except Exception as exc:
+                config_errors[f"judge:{jcfg.instance_id}"] = str(exc)
+        
+        # If any component failed to configure, fail fast with all errors
+        if config_errors:
+            error_msg = "Component configuration failed:\n" + "\n".join(
+                f"  {k}: {v}" for k, v in config_errors.items()
+            )
             self.logger.log_error(
                 m.experiment_id,
-                message=f"Configuration failed: {exc}",
+                message=error_msg,
             )
             self.logger.close()
-            raise
+            raise RuntimeError(error_msg)
 
-        # Health check
+        
+        # Phase 2: Health check all components and collect issues
+        health_issues: Dict[str, tuple[str, Dict[str, Any]]] = {}
+        
         for adapter, adapter_cfg in zip(self.adapters, m.adapters):
             health = await adapter.health_check()
             self.logger.log_event(
@@ -267,6 +283,7 @@ class Orchestrator:
                 )
             )
             if judge_health != HealthStatus.OK:
+                health_issues[f"judge:{judge.instance_id}"] = (judge.name, diagnostics)
                 self.logger.log_event(
                     LogEvent(
                         event_type=EventType.INFO.value,
@@ -280,6 +297,18 @@ class Orchestrator:
                         },
                     )
                 )
+        
+        # If any component has health issues, fail fast before wasting resources
+        if health_issues:
+            error_msg = "Component validation failed:\n" + "\n".join(
+                f"  {k} ({name}): {diag}" for k, (name, diag) in health_issues.items()
+            )
+            self.logger.log_error(
+                m.experiment_id,
+                message=error_msg,
+            )
+            self.logger.close()
+            raise RuntimeError(error_msg)
 
         # Main loop: batches of prompts
         semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
