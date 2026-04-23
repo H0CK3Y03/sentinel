@@ -6,6 +6,9 @@ adapters:
   - adapter: stub
     model_id: stub-v1
   - adapter: llama-cpp
+    model_id: qwen2.5-7b
+    config:
+      model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 generators:
   - name: single-turn-jailbreak
