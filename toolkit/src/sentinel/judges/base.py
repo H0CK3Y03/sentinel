@@ -56,7 +56,7 @@ class JudgeAdapter(ABC):
 
     # -- optional / overridable -----------------------------------------------
 
-    def health_check(self) -> HealthStatus:
+    async def health_check(self) -> HealthStatus:
         """Return the current availability of the judge backend."""
         return HealthStatus.OK
 

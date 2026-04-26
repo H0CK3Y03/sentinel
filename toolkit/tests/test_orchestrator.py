@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -159,6 +161,195 @@ async def test_batch_parallelism(tmp_path: Path) -> None:
     assert summary.total_prompts == 4
     assert summary.total_errors == 0
     assert orch.adapters[0].max_in_flight > 1
+
+
+@pytest.mark.asyncio
+async def test_combo_parallelism(tmp_path: Path) -> None:
+    """Adapter/generator combos should run concurrently when enabled."""
+
+    stats = {"in_flight": 0, "max_in_flight": 0}
+    lock = asyncio.Lock()
+
+    class ComboParallelAdapter(ModelAdapter):
+        def __init__(self, model_id: str = "combo-parallel", config: dict | None = None) -> None:
+            super().__init__(model_id=model_id, config=config)
+
+        async def generate(self, prompt: str, config: dict | None = None) -> ModelResponse:
+            async with lock:
+                stats["in_flight"] += 1
+                stats["max_in_flight"] = max(stats["max_in_flight"], stats["in_flight"])
+            await asyncio.sleep(0.05)
+            async with lock:
+                stats["in_flight"] -= 1
+            return ModelResponse(text="Combo response", model_id=self.model_id)
+
+        async def health_check(self) -> HealthStatus:
+            return HealthStatus.OK
+
+    register_adapter("combo-parallel", ComboParallelAdapter)
+
+    manifest = Manifest(
+        experiment_id="combo-parallel-001",
+        author="test",
+        description="combo parallelism test",
+        adapters=[
+            ManifestAdapter(adapter="combo-parallel", model_id="combo-a"),
+            ManifestAdapter(adapter="combo-parallel", model_id="combo-b"),
+        ],
+        generators=[ManifestGenerator(name="stub-template", config={"seed": 1})],
+        judges=[ManifestJudge(name="heuristic")],
+        seed=1,
+        batch_size=1,
+        num_batches=1,
+        max_concurrency=2,
+        max_combo_concurrency=2,
+        output=str(tmp_path / "combo-parallel.jsonl"),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 2
+    assert summary.total_errors == 0
+    assert stats["max_in_flight"] > 1
+
+
+@pytest.mark.asyncio
+async def test_streaming_pipeline_overlaps_generation(tmp_path: Path) -> None:
+    """Streaming mode should overlap generator and adapter work."""
+
+    adapter_started = threading.Event()
+    adapter_running = threading.Event()
+    overlap = {"seen": False}
+    overlap_lock = threading.Lock()
+
+    class StreamingGenerator(AttackGenerator):
+        def __init__(self, name: str = "streaming-generator") -> None:
+            super().__init__(name=name)
+            self._call_count = 0
+
+        def configure(self, params: dict) -> None:
+            self._configured = True
+
+        def next(self, batch_size: int = 1) -> list[PromptCandidate]:
+            self._call_count += 1
+            if self._call_count == 2:
+                adapter_started.wait(timeout=1.0)
+                if adapter_running.is_set():
+                    with overlap_lock:
+                        overlap["seen"] = True
+            time.sleep(0.05)
+            return [PromptCandidate(text=f"prompt-{self.name}") for _ in range(batch_size)]
+
+        def reset(self) -> None:
+            pass
+
+    class SlowAdapter(ModelAdapter):
+        def __init__(self, model_id: str = "streaming-adapter", config: dict | None = None) -> None:
+            super().__init__(model_id=model_id, config=config)
+
+        async def generate(self, prompt: str, config: dict | None = None) -> ModelResponse:
+            adapter_running.set()
+            adapter_started.set()
+            await asyncio.sleep(0.1)
+            adapter_running.clear()
+            return ModelResponse(text="streaming-response", model_id=self.model_id)
+
+        async def health_check(self) -> HealthStatus:
+            return HealthStatus.OK
+
+    register_generator("streaming-generator", StreamingGenerator)
+    register_adapter("streaming-adapter", SlowAdapter)
+
+    manifest = Manifest(
+        experiment_id="streaming-001",
+        author="test",
+        description="streaming pipeline test",
+        adapters=[ManifestAdapter(adapter="streaming-adapter", model_id="streaming-adapter")],
+        generators=[ManifestGenerator(name="streaming-generator")],
+        judges=[ManifestJudge(name="heuristic")],
+        seed=1,
+        batch_size=1,
+        num_batches=2,
+        max_concurrency=1,
+        max_combo_concurrency=1,
+        pipeline_mode="streaming",
+        output=str(tmp_path / "streaming.jsonl"),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 2
+    assert summary.total_errors == 0
+    assert overlap["seen"] is True
+
+
+@pytest.mark.asyncio
+async def test_judge_parallelism(tmp_path: Path) -> None:
+    """Judges should evaluate in parallel for a single prompt."""
+
+    stats = {"in_flight": 0, "max_in_flight": 0}
+    lock = threading.Lock()
+
+    class SlowJudge(JudgeAdapter):
+        def __init__(self, name: str) -> None:
+            super().__init__(name=name, judge_type=JudgeType.HEURISTIC)
+
+        def configure(self, params: dict) -> None:
+            self._configured = True
+
+        def evaluate(self, response: ModelResponse, prompt: PromptCandidate) -> Verdict:
+            with lock:
+                stats["in_flight"] += 1
+                stats["max_in_flight"] = max(stats["max_in_flight"], stats["in_flight"])
+            time.sleep(0.05)
+            with lock:
+                stats["in_flight"] -= 1
+            return Verdict(
+                prompt_id=prompt.prompt_id,
+                model_id=response.model_id,
+                labels=["compliance"],
+                confidence=1.0,
+                judge_type=self.judge_type.value,
+                explanation="slow judge",
+            )
+
+    class SlowJudgeA(SlowJudge):
+        def __init__(self, name: str = "slow-judge-a") -> None:
+            super().__init__(name=name)
+
+    class SlowJudgeB(SlowJudge):
+        def __init__(self, name: str = "slow-judge-b") -> None:
+            super().__init__(name=name)
+
+    register_judge("slow-judge-a", SlowJudgeA)
+    register_judge("slow-judge-b", SlowJudgeB)
+
+    manifest = Manifest(
+        experiment_id="judge-parallel-001",
+        author="test",
+        description="judge parallelism test",
+        adapters=[ManifestAdapter(adapter="stub", model_id="stub-v1")],
+        generators=[ManifestGenerator(name="stub-template", config={"seed": 1})],
+        judges=[
+            ManifestJudge(name="slow-judge-a"),
+            ManifestJudge(name="slow-judge-b"),
+        ],
+        seed=1,
+        batch_size=1,
+        num_batches=1,
+        max_concurrency=1,
+        max_combo_concurrency=1,
+        output=str(tmp_path / "judge-parallel.jsonl"),
+    )
+
+    orch = Orchestrator(manifest)
+    summary = await orch.run()
+
+    assert summary.total_prompts == 1
+    assert summary.total_errors == 0
+    assert stats["max_in_flight"] > 1
 
 
 @pytest.mark.asyncio

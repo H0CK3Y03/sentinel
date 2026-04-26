@@ -8,7 +8,8 @@ description: >
 
 # -- Model adapter -----------------------------------------------------------
 adapters:
-  - adapter: llama-cpp
+  - instance_id: adapter-llama
+    adapter: llama-cpp
     model_id: qwen2.5-7b-local
     config:
       model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
@@ -21,13 +22,15 @@ adapters:
 
 # -- Attack generator --------------------------------------------------------
 generators:
-  - name: stub-template
+  - instance_id: generator-stub
+    name: stub-template
     config:
       seed: 42
 
 # -- Judge pipeline (ordered) -----------------------------------------------
 judges:
-  - name: heuristic
+  - instance_id: judge-heuristic
+    name: heuristic
     config:
       refusal_threshold: 1
       compliance_threshold: 1
@@ -37,6 +40,8 @@ seed: 42
 batch_size: 4
 num_batches: 1
 max_concurrency: 1
+max_combo_concurrency: 1
+pipeline_mode: "batch"
 rate_limit_rps: 0
 
 # -- Output -----------------------------------------------------------------

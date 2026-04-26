@@ -39,9 +39,13 @@ def test_load_json(tmp_path: Path) -> None:
         "experiment_id": "json-test",
         "adapters": [{"adapter": "stub"}],
         "batch_size": 2,
+        "max_combo_concurrency": 3,
+        "pipeline_mode": "streaming",
     }))
     m = load_manifest(p)
     assert m.experiment_id == "json-test"
+    assert m.max_combo_concurrency == 3
+    assert m.pipeline_mode == "streaming"
 
 
 def test_instance_ids_are_generated_when_missing(tmp_path: Path) -> None:

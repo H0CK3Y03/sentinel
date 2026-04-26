@@ -126,7 +126,7 @@ class HeuristicJudge(JudgeAdapter):
             explanation=explanation,
         )
 
-    def health_check(self) -> HealthStatus:
+    async def health_check(self) -> HealthStatus:
         return HealthStatus.OK
 
     def reset(self) -> None:

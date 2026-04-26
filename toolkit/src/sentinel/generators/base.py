@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from sentinel.models import InferenceMode, ModelResponse, PromptCandidate
+from sentinel.models import HealthStatus, InferenceMode, ModelResponse, PromptCandidate
 
 
 class AttackGenerator(ABC):
@@ -53,6 +53,22 @@ class AttackGenerator(ABC):
     def supported_modes(self) -> set[InferenceMode]:
         """Inference modes this generator can work with."""
         return {InferenceMode.BLACK_BOX}
+
+    async def health_check(self) -> HealthStatus:
+        """Return the current availability of the generator backend."""
+        return HealthStatus.OK
+
+    def diagnostics(self) -> Dict[str, Any]:
+        """Optional runtime diagnostics for logging and troubleshooting."""
+        return {}
+
+    def supports_streaming(self) -> bool:
+        """Whether prompts can be generated ahead of responses.
+
+        Return False for generators that require response feedback to produce
+        the next prompt (for example, multi-turn or adaptive attacks).
+        """
+        return True
 
     def update(self, prompt: PromptCandidate, response: ModelResponse) -> None:
         """Stateful callback: update internal policy given a model response.

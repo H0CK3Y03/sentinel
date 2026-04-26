@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 from llama_cpp import Llama
 
 from sentinel.generators.base import AttackGenerator
-from sentinel.models import PromptCandidate
+from sentinel.models import HealthStatus, PromptCandidate
 
 
 class LlamaCppAttackGenerator(AttackGenerator):
@@ -173,6 +173,20 @@ class LlamaCppAttackGenerator(AttackGenerator):
                 self._prompt_counter += 1
 
         return prompts
+
+    async def health_check(self) -> HealthStatus:
+        if self._llm is not None:
+            return HealthStatus.OK
+        if self._load_error:
+            return HealthStatus.DEGRADED
+        return HealthStatus.UNAVAILABLE
+
+    def diagnostics(self) -> Dict[str, Any]:
+        return {
+            "model_path": str(self._model_path) if self._model_path else "",
+            "loaded": self._llm is not None,
+            "load_error": self._load_error or "",
+        }
 
     def reset(self) -> None:
         """Reset internal state for a fresh run."""

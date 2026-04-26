@@ -106,6 +106,8 @@ seed: 42
 batch_size: 8
 num_batches: 2
 max_concurrency: 4
+max_combo_concurrency: 2
+pipeline_mode: "batch"
 rate_limit_rps: 0
 
 

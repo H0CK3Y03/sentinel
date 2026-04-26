@@ -103,6 +103,10 @@ class LlamaCppModelAdapter(ModelAdapter):
 
         self._configured = True
 
+    def configure(self, params: Dict[str, Any]) -> None:
+        super().configure(params)
+        self._try_configure(self.config)
+
     async def generate(self, prompt: str, config: Dict[str, Any] | None = None) -> ModelResponse:
         if config:
             merged = dict(self.config)
@@ -165,6 +169,13 @@ class LlamaCppModelAdapter(ModelAdapter):
         if self._load_error:
             return HealthStatus.DEGRADED
         return HealthStatus.UNAVAILABLE
+
+    def diagnostics(self) -> Dict[str, Any]:
+        return {
+            "model_path": str(self._model_path) if self._model_path else "",
+            "loaded": self._llm is not None,
+            "load_error": self._load_error or "",
+        }
 
     async def cost_estimate(self, prompt: str, config: Dict[str, Any] | None = None) -> CostInfo:
         # Local inference is hardware-bound; expose a token-only estimate.

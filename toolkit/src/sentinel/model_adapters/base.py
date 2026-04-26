@@ -37,6 +37,7 @@ class ModelAdapter(ABC):
         self.model_id = model_id
         self.config: Dict[str, Any] = config or {}
         self.instance_id = instance_id
+        self._configured = False
 
     # -- required interface ---------------------------------------------------
 
@@ -47,6 +48,23 @@ class ModelAdapter(ABC):
     @abstractmethod
     async def health_check(self) -> HealthStatus:
         """Return the current availability of the backend."""
+
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Accept declarative configuration from the experiment manifest.
+
+        Default is a no-op. Subclasses can override to initialize backends,
+        load models, or validate configuration parameters.
+        """
+        self.config = config or {}
+        self._configured = True
+
+    def diagnostics(self) -> Dict[str, Any]:
+        """Optional runtime diagnostics for logging and troubleshooting."""
+        return {}
+
+    def reset(self) -> None:
+        """Reset any accumulated state between experiments."""
+        return None
 
     # -- optional / overridable -----------------------------------------------
 

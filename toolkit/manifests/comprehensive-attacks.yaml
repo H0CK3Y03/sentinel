@@ -3,44 +3,56 @@ author: "LLM Red-Teaming Toolkit"
 description: "Comprehensive test of all major attack types with detailed metric collection"
 
 adapters:
-  - adapter: stub
+  - instance_id: adapter-stub
+    adapter: stub
     model_id: stub-v1
-  - adapter: llama-cpp
+  - instance_id: adapter-llama
+    adapter: llama-cpp
     model_id: qwen2.5-7b
     config:
       model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 generators:
-  - name: single-turn-jailbreak
+  - instance_id: generator-single-turn
+    name: single-turn-jailbreak
     config:
       seed: 42
-  - name: prompt-injection
+  - instance_id: generator-prompt-injection
+    name: prompt-injection
     config:
       seed: 42
-  - name: token-perturbation
+  - instance_id: generator-token-perturbation
+    name: token-perturbation
     config:
       seed: 42
-  - name: universal-trigger
+  - instance_id: generator-universal-trigger
+    name: universal-trigger
     config:
       seed: 42
-  - name: multi-turn-conversation
+  - instance_id: generator-multi-turn
+    name: multi-turn-conversation
     config:
       seed: 42
-  - name: llama-cpp-attacker
+  - instance_id: generator-llama-attacker
+    name: llama-cpp-attacker
     config:
       model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 judges:
-  - name: heuristic
+  - instance_id: judge-heuristic
+    name: heuristic
     config:
       refusal_threshold: 1
       compliance_threshold: 1
-  - name: llama-cpp-judge
+  - instance_id: judge-llama
+    name: llama-cpp-judge
     config:
       model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
 
 batch_size: 16
 num_batches: 2
 max_concurrency: 8
+max_combo_concurrency: 2
+pipeline_mode: "batch"
 rate_limit_rps: 0  # No rate limit for local testing
 output: "logs/comprehensive-attacks.jsonl"

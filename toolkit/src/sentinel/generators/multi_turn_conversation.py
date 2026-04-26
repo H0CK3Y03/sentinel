@@ -195,6 +195,10 @@ class MultiTurnConversationGenerator(AttackGenerator):
         state["responses"].append(response.text)
         state["current_turn"] += 1
 
+    def supports_streaming(self) -> bool:
+        """Multi-turn flows require response feedback before the next turn."""
+        return False
+
     def get_next_turn(self, conversation_id: str) -> PromptCandidate | None:
         """Get the next prompt in an ongoing conversation.
 

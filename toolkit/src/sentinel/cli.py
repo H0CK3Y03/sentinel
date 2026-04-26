@@ -69,6 +69,10 @@ def run(
     typer.echo(
         f"  batches   : {len(manifest.adapters)} * {len(manifest.generators)} * {manifest.num_batches} * {manifest.batch_size}"
     )
+    typer.echo(f"  combos    : {len(manifest.adapters)} * {len(manifest.generators)}")
+    typer.echo(f"  combo conc: {manifest.max_combo_concurrency}")
+    typer.echo(f"  prompt conc: {manifest.max_concurrency}")
+    typer.echo(f"  pipeline  : {manifest.pipeline_mode}")
     typer.echo(f"  output    : {manifest.output}")
     typer.echo()
 

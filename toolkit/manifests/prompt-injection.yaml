@@ -3,18 +3,23 @@ author: "LLM Red-Teaming Toolkit"
 description: "Test prompt injection attacks where user input overrides system instructions"
 
 adapters:
-  - adapter: stub
+  - instance_id: adapter-stub
+    adapter: stub
     model_id: stub-v1
 
 generators:
-  - name: prompt-injection
+  - instance_id: generator-prompt-injection
+    name: prompt-injection
     config:
       seed: 42
 
 judges:
-  - name: heuristic
+  - instance_id: judge-heuristic
+    name: heuristic
 
 batch_size: 8
 num_batches: 2
 max_concurrency: 4
+max_combo_concurrency: 1
+pipeline_mode: "batch"
 output: "logs/prompt-injection.jsonl"

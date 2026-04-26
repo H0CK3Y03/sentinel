@@ -44,7 +44,8 @@ description: >
 
 adapters:
   # Adapter 1: Stub (mock) adapter
-  - adapter: "stub"
+  - instance_id: "adapter-example-a"
+    adapter: "stub"
     # [OPTIONAL] Instance identifier for this adapter entry.
     # If omitted, Sentinel generates one automatically (adapter-<8 hex chars>).
     # [REQUIRED] Type of adapter: stub | llama_cpp | openai | anthropic | ...
@@ -89,7 +90,8 @@ adapters:
 
 generators:
   # Generator 1: Template-based
-  - name: "stub-template"
+  - instance_id: "generator-example-a"
+    name: "stub-template"
     # [OPTIONAL] Instance identifier for this generator entry.
     # If omitted, Sentinel generates one automatically (generator-<8 hex chars>).
     # [REQUIRED] Generator identifier: stub-template | single-turn-jailbreak | 
@@ -129,7 +131,8 @@ generators:
 
 judges:
   # Judge 1: Heuristic layer (keyword/regex based)
-  - name: "heuristic"
+  - instance_id: "judge-example-a"
+    name: "heuristic"
     # [OPTIONAL] Instance identifier for this judge entry.
     # If omitted, Sentinel generates one automatically (judge-<8 hex chars>).
     # [REQUIRED] Judge identifier: heuristic | llm | classifier | ...
@@ -183,7 +186,18 @@ max_concurrency: 4
 # Default: 1 (sequential)
 # Range: 1-128 (system limitations apply)
 # Allows fine-grained control over parallelism vs. resource usage.
-# Does NOT affect adapter/generator cross-product (always serialized).
+
+max_combo_concurrency: 2
+# [OPTIONAL] Max number of adapter×generator combos to run in parallel.
+# Default: 1 (serialized combos)
+# Range: 1-128 (system limitations apply)
+# Use with caution: running many combos at once increases memory and model load.
+
+pipeline_mode: "batch"
+# [OPTIONAL] Execution mode for generator/adaptor overlap.
+# "batch" = generate a batch, then process responses (default).
+# "streaming" = prefetch the next batch while processing the current batch.
+# Streaming is automatically disabled for stateful generators (e.g., multi-turn).
 
 rate_limit_rps: 0
 # [OPTIONAL] Rate limit: max requests per second to external services.

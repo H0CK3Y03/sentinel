@@ -8,24 +8,28 @@ description: >
 
 # -- Model adapter -----------------------------------------------------------
 adapters:
-  - adapter: stub
+  - instance_id: adapter-stub
+    adapter: stub
     model_id: stub-v1
     config:
       latency_ms: 50
 
 # -- Attack generator --------------------------------------------------------
 generators:
-  - name: stub-template
+  - instance_id: generator-stub
+    name: stub-template
     config:
       seed: 42
 
 # -- Judge pipeline (ordered) -----------------------------------------------
 judges:
-  - name: heuristic
+  - instance_id: judge-heuristic
+    name: heuristic
     config:
       refusal_threshold: 1
       compliance_threshold: 1
-  - name: llama-cpp-judge
+  - instance_id: judge-llama
+    name: llama-cpp-judge
     config:
       model_path: /home/hockey/models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
       n_ctx: 2048
@@ -39,6 +43,8 @@ seed: 42
 batch_size: 4
 num_batches: 1
 max_concurrency: 1
+max_combo_concurrency: 1
+pipeline_mode: "batch"
 rate_limit_rps: 0
 
 # -- Output ------------------------------------------------------------------

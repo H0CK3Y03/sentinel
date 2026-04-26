@@ -50,6 +50,11 @@ class StubAdapter(ModelAdapter):
 
     # -- ModelAdapter interface -----------------------------------------------
 
+    def configure(self, config: Dict[str, Any]) -> None:
+        super().configure(config)
+        self._latency_ms = float(self.config.get("latency_ms", 50))
+        self._fixed_tokens = self.config.get("fixed_tokens")
+
     async def generate(self, prompt: str, config: Dict[str, Any] | None = None) -> ModelResponse:
         start = time.perf_counter()
 

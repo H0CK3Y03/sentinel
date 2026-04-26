@@ -160,7 +160,7 @@ class LlamaCppJudge(JudgeAdapter):
             explanation=explanation,
         )
 
-    def health_check(self) -> HealthStatus:
+    async def health_check(self) -> HealthStatus:
         if self._llm is not None:
             return HealthStatus.OK
         if self._load_error:

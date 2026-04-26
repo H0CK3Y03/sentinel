@@ -46,7 +46,7 @@ class StubJudge(JudgeAdapter):
             explanation="Stub judge - no real evaluation performed.",
         )
 
-    def health_check(self) -> HealthStatus:
+    async def health_check(self) -> HealthStatus:
         return HealthStatus.OK
 
     def reset(self) -> None:

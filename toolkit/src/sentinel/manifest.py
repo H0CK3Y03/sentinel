@@ -87,6 +87,10 @@ class Manifest:
     batch_size: int = 8
     num_batches: int = 1
     max_concurrency: int = 1
+    max_combo_concurrency: int = 1
+    pipeline_mode: str = "batch"
+    force_generator_isolation: bool = False
+    max_turns_per_conversation: int = 10
     rate_limit_rps: float = 0.0  # 0 = unlimited
     output: str = "logs/experiment.jsonl"
 
@@ -106,6 +110,13 @@ class Manifest:
         self.adapters = _normalise_adapters(self.adapters)
         self.generators = _normalise_generators(self.generators)
         self.judges = _normalise_judges(self.judges)
+        pipeline_mode = (self.pipeline_mode or "batch").lower()
+        if pipeline_mode not in {"batch", "streaming"}:
+            raise ValueError(
+                "pipeline_mode must be 'batch' or 'streaming'"
+            )
+        self.pipeline_mode = pipeline_mode
+        self.force_generator_isolation = bool(self.force_generator_isolation)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise back to a plain dict (for logging)."""
@@ -120,6 +131,10 @@ class Manifest:
             "batch_size": self.batch_size,
             "num_batches": self.num_batches,
             "max_concurrency": self.max_concurrency,
+            "max_combo_concurrency": self.max_combo_concurrency,
+            "pipeline_mode": self.pipeline_mode,
+            "force_generator_isolation": self.force_generator_isolation,
+            "max_turns_per_conversation": self.max_turns_per_conversation,
             "rate_limit_rps": self.rate_limit_rps,
             "output": self.output,
         }
@@ -172,6 +187,10 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         batch_size=int(data.get("batch_size", 8)),
         num_batches=int(data.get("num_batches", 1)),
         max_concurrency=max(1, int(data.get("max_concurrency", 1))),
+        max_combo_concurrency=max(1, int(data.get("max_combo_concurrency", 1))),
+        pipeline_mode=str(data.get("pipeline_mode", "batch")),
+        force_generator_isolation=bool(data.get("force_generator_isolation", False)),
+        max_turns_per_conversation=max(1, int(data.get("max_turns_per_conversation", 10))),
         rate_limit_rps=float(data.get("rate_limit_rps", 0)),
         output=data.get("output", "logs/experiment.jsonl"),
         raw=data,
