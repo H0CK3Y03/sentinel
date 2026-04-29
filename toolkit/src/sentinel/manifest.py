@@ -90,6 +90,8 @@ class Manifest:
     max_combo_concurrency: int = 1
     pipeline_mode: str = "batch"
     force_generator_isolation: bool = False
+    force_adapter_isolation: bool = False
+    force_judge_isolation: bool = False
     max_turns_per_conversation: int = 10
     rate_limit_rps: float = 0.0  # 0 = unlimited
     output: str = "logs/experiment.jsonl"
@@ -134,6 +136,8 @@ class Manifest:
             "max_combo_concurrency": self.max_combo_concurrency,
             "pipeline_mode": self.pipeline_mode,
             "force_generator_isolation": self.force_generator_isolation,
+            "force_adapter_isolation": self.force_adapter_isolation,
+            "force_judge_isolation": self.force_judge_isolation,
             "max_turns_per_conversation": self.max_turns_per_conversation,
             "rate_limit_rps": self.rate_limit_rps,
             "output": self.output,
@@ -177,23 +181,25 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     )
 
     return Manifest(
-        experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
-        author=data.get("author", ""),
-        description=data.get("description", ""),
-        adapters=adapters,
-        generators=generators,
-        judges=judges,
-        seed=int(data.get("seed", 42)),
-        batch_size=int(data.get("batch_size", 8)),
-        num_batches=int(data.get("num_batches", 1)),
-        max_concurrency=max(1, int(data.get("max_concurrency", 1))),
-        max_combo_concurrency=max(1, int(data.get("max_combo_concurrency", 1))),
-        pipeline_mode=str(data.get("pipeline_mode", "batch")),
-        force_generator_isolation=bool(data.get("force_generator_isolation", False)),
-        max_turns_per_conversation=max(1, int(data.get("max_turns_per_conversation", 10))),
-        rate_limit_rps=float(data.get("rate_limit_rps", 0)),
-        output=data.get("output", "logs/experiment.jsonl"),
-        raw=data,
+    experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
+    author=data.get("author", ""),
+    description=data.get("description", ""),
+    adapters=adapters,
+    generators=generators,
+    judges=judges,
+    seed=int(data.get("seed", 42)),
+    batch_size=int(data.get("batch_size", 8)),
+    num_batches=int(data.get("num_batches", 1)),
+    max_concurrency=max(1, int(data.get("max_concurrency", 1))),
+    max_combo_concurrency=max(1, int(data.get("max_combo_concurrency", 1))),
+    pipeline_mode=str(data.get("pipeline_mode", "batch")),
+    force_generator_isolation=bool(data.get("force_generator_isolation", False)),
+    force_adapter_isolation=bool(data.get("force_adapter_isolation", False)),
+    force_judge_isolation=bool(data.get("force_judge_isolation", False)),
+    max_turns_per_conversation=max(1, int(data.get("max_turns_per_conversation", 10))),
+    rate_limit_rps=float(data.get("rate_limit_rps", 0)),
+    output=data.get("output", "logs/experiment.jsonl"),
+    raw=data,
     )
 
 

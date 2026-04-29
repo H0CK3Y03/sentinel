@@ -87,6 +87,8 @@ class _Combo:
     adapter_cfg: ManifestAdapter
     generator: AttackGenerator
     generator_cfg: ManifestGenerator
+    judges: List[JudgeAdapter] | None = None
+    judge_cfgs: List = None
 
 
 class _AsyncRateLimiter:
@@ -204,6 +206,8 @@ class Orchestrator:
         prompt: PromptCandidate,
         experiment_id: str,
         rate_limiter: _AsyncRateLimiter,
+        judges: List[JudgeAdapter] | None = None,
+        judge_locks: List[asyncio.Lock] | None = None,
     ) -> _TrialOutcome:
         await rate_limiter.acquire()
 
@@ -213,11 +217,13 @@ class Orchestrator:
             response.adapter_instance_id = getattr(adapter, "instance_id", "")
 
             verdicts: List[Verdict] = []
-            if self.judges:
+            use_judges = judges if judges is not None else self.judges
+            use_locks = judge_locks if judge_locks is not None else self._judge_locks
+            if use_judges:
                 verdicts = await asyncio.gather(
                     *(
                         self._evaluate_judge(judge, lock, response, prompt, experiment_id)
-                        for judge, lock in zip(self.judges, self._judge_locks)
+                        for judge, lock in zip(use_judges, use_locks)
                     )
                 )
 
@@ -240,44 +246,90 @@ class Orchestrator:
         return verdict
 
     def _build_combos(self, m: Manifest) -> List[_Combo]:
-        """Build adapterxgenerator combos with optional per-combo isolation.
-        
-        When force_generator_isolation is True or when max_combo_concurrency > 1
-        with multiple adapters, instantiate new generator per combo for state isolation.
+        """Build adapter×generator combos with optional per-combo isolation.
+
+        Supports optional isolation flags for generators, adapters, and judges.
+        When isolation is requested, new instances are created per-combo to
+        ensure independent state (useful for multi-turn flows and parallelism).
         """
-        should_isolate = (
-            m.force_generator_isolation or 
+        should_isolate_generators = (
+            m.force_generator_isolation or
             (m.max_combo_concurrency > 1 and len(m.adapters) > 1)
         )
-        
-        if should_isolate:
-            combos: List[_Combo] = []
-            for adapter, adapter_cfg in zip(self.adapters, m.adapters):
-                for generator_cfg in m.generators:
-                    generator = create_generator(
+        should_isolate_adapters = bool(m.force_adapter_isolation)
+        should_isolate_judges = bool(m.force_judge_isolation)
+
+        combos: List[_Combo] = []
+
+        # If no isolation requested at all and lengths align, keep the simple
+        # shared-instance cartesian product behaviour for efficiency.
+        if not (should_isolate_generators or should_isolate_adapters or should_isolate_judges):
+            return [
+                _Combo(
+                    adapter=adapter,
+                    adapter_cfg=adapter_cfg,
+                    generator=generator,
+                    generator_cfg=generator_cfg,
+                    judges=None,
+                    judge_cfgs=None,
+                )
+                for adapter, adapter_cfg in zip(self.adapters, m.adapters)
+                for generator, generator_cfg in zip(self.generators, m.generators)
+            ]
+
+        # Otherwise build explicit per-combo instances as required.
+        for a_idx, (adapter, adapter_cfg) in enumerate(zip(self.adapters, m.adapters)):
+            for g_idx, generator_cfg in enumerate(m.generators):
+                # Adapter instance (shared or per-combo)
+                if should_isolate_adapters:
+                    adapter_instance = create_adapter(
+                        name=adapter_cfg.adapter,
+                        model_id=adapter_cfg.model_id,
+                        config=adapter_cfg.config,
+                        instance_id=adapter_cfg.instance_id,
+                    )
+                else:
+                    adapter_instance = adapter
+
+                # Generator instance (shared or per-combo)
+                if should_isolate_generators:
+                    generator_instance = create_generator(
                         generator_cfg.name,
                         instance_id=generator_cfg.instance_id,
                     )
-                    combos.append(
-                        _Combo(
-                            adapter=adapter,
-                            adapter_cfg=adapter_cfg,
-                            generator=generator,
-                            generator_cfg=generator_cfg,
+                else:
+                    # try to select a matching shared generator by index
+                    try:
+                        generator_instance = self.generators[g_idx]
+                    except Exception:
+                        generator_instance = create_generator(
+                            generator_cfg.name, instance_id=generator_cfg.instance_id
                         )
-                    )
-            return combos
 
-        return [
-            _Combo(
-                adapter=adapter,
-                adapter_cfg=adapter_cfg,
-                generator=generator,
-                generator_cfg=generator_cfg,
-            )
-            for adapter, adapter_cfg in zip(self.adapters, m.adapters)
-            for generator, generator_cfg in zip(self.generators, m.generators)
-        ]
+                # Judges (shared list or per-combo instances)
+                if should_isolate_judges:
+                    judges_list: List[JudgeAdapter] = []
+                    judge_cfgs_list = []
+                    for jcfg in m.judges:
+                        j = create_judge(jcfg.name, instance_id=jcfg.instance_id)
+                        judges_list.append(j)
+                        judge_cfgs_list.append(jcfg)
+                else:
+                    judges_list = None
+                    judge_cfgs_list = None
+
+                combos.append(
+                    _Combo(
+                        adapter=adapter_instance,
+                        adapter_cfg=adapter_cfg,
+                        generator=generator_instance,
+                        generator_cfg=generator_cfg,
+                        judges=judges_list,
+                        judge_cfgs=judge_cfgs_list,
+                    )
+                )
+
+        return combos
 
     @staticmethod
     def _unique_generators(combos: List[_Combo]) -> List[AttackGenerator]:
@@ -292,10 +344,35 @@ class Orchestrator:
         return unique
 
     @staticmethod
+    def _unique_judges(combos: List[_Combo]) -> List[JudgeAdapter]:
+        unique: List[JudgeAdapter] = []
+        seen: set[int] = set()
+        for combo in combos:
+            judges = combo.judges if getattr(combo, "judges", None) is not None else None
+            if judges is None:
+                continue
+            for judge in judges:
+                jid = id(judge)
+                if jid in seen:
+                    continue
+                seen.add(jid)
+                unique.append(judge)
+        return unique
+
+    @staticmethod
     def _generator_config_map(combos: List[_Combo]) -> Dict[int, ManifestGenerator]:
         config_map: Dict[int, ManifestGenerator] = {}
         for combo in combos:
             config_map.setdefault(id(combo.generator), combo.generator_cfg)
+        return config_map
+
+    @staticmethod
+    def _judge_config_map(combos: List[_Combo]) -> Dict[int, ManifestGenerator]:
+        config_map: Dict[int, ManifestGenerator] = {}
+        for combo in combos:
+            if getattr(combo, "judge_cfgs", None):
+                for jcfg in combo.judge_cfgs:
+                    config_map.setdefault(id(jcfg), jcfg)
         return config_map
 
     @staticmethod
@@ -347,6 +424,8 @@ class Orchestrator:
         m: Manifest,
         generators: List[AttackGenerator],
         generator_cfgs: Dict[int, ManifestGenerator],
+        judges: List[JudgeAdapter] | None = None,
+        judge_cfgs: Dict[int, object] | None = None,
     ) -> None:
         config_errors: Dict[str, str] = {}
 
@@ -365,11 +444,30 @@ class Orchestrator:
             except Exception as exc:
                 config_errors[f"generator:{generator_cfg.instance_id}"] = str(exc)
 
-        for judge, jcfg in zip(self.judges, m.judges):
-            try:
-                judge.configure(jcfg.config)
-            except Exception as exc:
-                config_errors[f"judge:{jcfg.instance_id}"] = str(exc)
+        # Configure judges: prefer explicit list passed in (per-combo unique judges),
+        # otherwise configure the global shared judges.
+        judges_to_configure = judges if judges is not None else self.judges
+        judge_cfgs_list = None
+        if judge_cfgs is not None:
+            judge_cfgs_list = judge_cfgs
+
+        if judges_to_configure:
+            # If we have an explicit list, zip with the provided manifest entries
+            # when available; otherwise fall back to manifest order.
+            for idx, judge in enumerate(judges_to_configure):
+                try:
+                    if judge_cfgs_list and id(judge) in judge_cfgs_list:
+                        jcfg = judge_cfgs_list.get(id(judge))
+                        cfg = getattr(jcfg, "config", {})
+                        instance_id = getattr(jcfg, "instance_id", "")
+                    else:
+                        # fall back to manifest entry if present
+                        jcfg = m.judges[idx] if idx < len(m.judges) else None
+                        cfg = jcfg.config if jcfg is not None else {}
+                        instance_id = jcfg.instance_id if jcfg is not None else getattr(judge, "instance_id", "")
+                    judge.configure(cfg)
+                except Exception as exc:
+                    config_errors[f"judge:{instance_id}"] = str(exc)
 
         if config_errors:
             error_msg = "Component configuration failed:\n" + "\n".join(
@@ -465,33 +563,22 @@ class Orchestrator:
                     )
                 )
 
-        for judge in self.judges:
-            judge_health = await judge.health_check()
-            diagnostics = judge.diagnostics()
-            self.logger.log_event(
-                LogEvent(
-                    event_type=EventType.INFO.value,
-                    experiment_id=m.experiment_id,
-                    data=self._component_health_payload(
-                        "judge",
-                        judge.name,
-                        judge.instance_id,
-                        judge_health,
-                        diagnostics,
-                    ),
-                )
-            )
-            if judge_health != HealthStatus.OK:
-                health_issues[f"judge:{judge.instance_id}"] = {
-                    "name": judge.name,
-                    "health": judge_health.value,
-                    "diagnostics": diagnostics,
-                }
+        # Health-check judges (use provided explicit list if present)
+        judges_to_check = getattr(self, "judges", None)
+        # If callers passed explicit judges via combos, try to use those instead
+        # (the run() method will pass them via the callers to this function when needed).
+        if hasattr(self, "_explicit_judges") and getattr(self, "_explicit_judges"):
+            judges_to_check = getattr(self, "_explicit_judges")
+
+        if judges_to_check:
+            for judge in judges_to_check:
+                judge_health = await judge.health_check()
+                diagnostics = judge.diagnostics()
                 self.logger.log_event(
                     LogEvent(
                         event_type=EventType.INFO.value,
                         experiment_id=m.experiment_id,
-                        data=self._component_warning_payload(
+                        data=self._component_health_payload(
                             "judge",
                             judge.name,
                             judge.instance_id,
@@ -500,6 +587,25 @@ class Orchestrator:
                         ),
                     )
                 )
+                if judge_health != HealthStatus.OK:
+                    health_issues[f"judge:{judge.instance_id}"] = {
+                        "name": judge.name,
+                        "health": judge_health.value,
+                        "diagnostics": diagnostics,
+                    }
+                    self.logger.log_event(
+                        LogEvent(
+                            event_type=EventType.INFO.value,
+                            experiment_id=m.experiment_id,
+                            data=self._component_warning_payload(
+                                "judge",
+                                judge.name,
+                                judge.instance_id,
+                                judge_health,
+                                diagnostics,
+                            ),
+                        )
+                    )
 
         if health_issues:
             error_msg = "Component validation failed:\n" + "\n".join(
@@ -513,8 +619,7 @@ class Orchestrator:
             self.logger.close()
             raise RuntimeError(error_msg)
 
-    def _combo_supports_streaming(self, combo: _Combo, m: Manifest) -> bool:
-        return m.pipeline_mode == "streaming" and combo.generator.supports_streaming()
+    
 
     async def _advance_multiturn_if_needed(
         self,
@@ -652,6 +757,11 @@ class Orchestrator:
     ) -> None:
         adapter = combo.adapter
         generator = combo.generator
+        local_judges = combo.judges if getattr(combo, "judges", None) is not None else self.judges
+        if getattr(combo, "judges", None) is not None:
+            local_judge_locks = [asyncio.Lock() for _ in local_judges]
+        else:
+            local_judge_locks = self._judge_locks
 
         for _batch_idx in range(m.num_batches):
             prompts = await asyncio.to_thread(generator.next, m.batch_size)
@@ -663,6 +773,8 @@ class Orchestrator:
                         prompt,
                         m.experiment_id,
                         rate_limiter,
+                        judges=local_judges,
+                        judge_locks=local_judge_locks,
                     )
 
             outcomes = await asyncio.gather(
@@ -687,6 +799,11 @@ class Orchestrator:
     ) -> None:
         adapter = combo.adapter
         generator = combo.generator
+        local_judges = combo.judges if getattr(combo, "judges", None) is not None else self.judges
+        if getattr(combo, "judges", None) is not None:
+            local_judge_locks = [asyncio.Lock() for _ in local_judges]
+        else:
+            local_judge_locks = self._judge_locks
         next_prompts_task: asyncio.Task[List[PromptCandidate]] | None = None
 
         for batch_idx in range(m.num_batches):
@@ -709,6 +826,8 @@ class Orchestrator:
                         prompt,
                         m.experiment_id,
                         rate_limiter,
+                        judges=local_judges,
+                        judge_locks=local_judge_locks,
                     )
 
             outcomes = await asyncio.gather(
@@ -785,8 +904,29 @@ class Orchestrator:
         generator_cfgs = self._generator_config_map(combos)
         generators_in_use = self._unique_generators(combos)
 
+        # Determine if combos created explicit per-combo judges
+        explicit_judges: List[JudgeAdapter] | None = None
+        explicit_judge_cfgs: Dict[int, object] | None = None
+        seen_jids: set[int] = set()
+        for combo in combos:
+            if getattr(combo, "judges", None):
+                if explicit_judges is None:
+                    explicit_judges = []
+                    explicit_judge_cfgs = {}
+                for j, jcfg in zip(combo.judges, combo.judge_cfgs or []):
+                    jid = id(j)
+                    if jid in seen_jids:
+                        continue
+                    seen_jids.add(jid)
+                    explicit_judges.append(j)
+                    explicit_judge_cfgs[jid] = jcfg
+
         # Phase 1: Configure all components and collect errors
-        self._configure_components(m, generators_in_use, generator_cfgs)
+        self._configure_components(m, generators_in_use, generator_cfgs, judges=explicit_judges, judge_cfgs=explicit_judge_cfgs)
+
+        # Expose explicit judges to the health-check helper if present
+        if explicit_judges is not None:
+            setattr(self, "_explicit_judges", explicit_judges)
 
         # Phase 2: Health check all components and collect issues
         await self._health_check_components(m, generators_in_use, generator_cfgs)
@@ -819,5 +959,32 @@ class Orchestrator:
         self.logger.close()
         for adapter in self.adapters:
             await adapter.close()
+
+        # Close any generators created for this run if they implement close()
+        try:
+            for gen in generators_in_use:
+                close_coro = getattr(gen, "close", None)
+                if close_coro is not None:
+                    if asyncio.iscoroutinefunction(close_coro):
+                        await close_coro()
+                    else:
+                        # sync close
+                        await asyncio.to_thread(close_coro)
+        except Exception:
+            # best-effort cleanup; don't fail the run on cleanup errors
+            pass
+
+        # Close explicit per-combo judges if created
+        if explicit_judges is not None:
+            for judge in explicit_judges:
+                close_coro = getattr(judge, "close", None)
+                if close_coro is not None:
+                    try:
+                        if asyncio.iscoroutinefunction(close_coro):
+                            await close_coro()
+                        else:
+                            await asyncio.to_thread(close_coro)
+                    except Exception:
+                        pass
 
         return summary
