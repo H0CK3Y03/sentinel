@@ -142,7 +142,6 @@ class TokenPerturbationGenerator(AttackGenerator):
             abbreviations: Dict[str, str] = {
                 "explosive": "exp.",
                 "instructions": "instr.",
-                "instructions": "instr.",
                 "synthesize": "synth.",
                 "identity": "ID",
                 "system": "sys.",

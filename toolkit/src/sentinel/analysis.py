@@ -303,8 +303,8 @@ class ExperimentAnalyzer:
 
         # Compute overall statistics
         total_trials = len(self.trials)
-        total_compliances = sum(1 for t in all_compliances)
-        total_refusals = sum(1 for t in all_refusals)
+        total_compliances = len(all_compliances)
+        total_refusals = len(all_refusals)
         total_inconclusive = total_trials - total_compliances - total_refusals
 
         overall_asr = total_compliances / total_trials if total_trials > 0 else 0.0

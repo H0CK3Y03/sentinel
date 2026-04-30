@@ -28,6 +28,7 @@ class JudgeType(str, Enum):
     HEURISTIC = "heuristic"
     CLASSIFIER = "classifier"
     LLM = "llm"
+    ENSEMBLE = "ensemble"
 
 
 class HealthStatus(str, Enum):
