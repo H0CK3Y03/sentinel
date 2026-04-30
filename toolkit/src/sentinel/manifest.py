@@ -1,9 +1,9 @@
 """Experiment manifest loader and validator.
 
-Manifests are small YAML (preferred) or JSON files that declaratively
-describe every parameter of a red-teaming experiment.  The loader
-validates required fields and returns a typed `Manifest` object that
-the orchestrator consumes.
+Manifests are small YAML or JSON files that declaratively describe every
+parameter of a red-teaming experiment. The loader validates required
+fields and returns a typed :class:`Manifest` object that the orchestrator
+consumes.
 """
 
 from __future__ import annotations
@@ -20,13 +20,17 @@ except ImportError:  # pragma: no cover - YAML is optional
     yaml = None  # type: ignore[assignment]
 
 
+# ---------------------------------------------------------------------------
+# Component dataclasses
+# ---------------------------------------------------------------------------
+
 def _new_instance_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
 @dataclass
 class ManifestAdapter:
-    """Model / adapter section of a manifest."""
+    """Model adapter section of a manifest."""
     instance_id: str = field(default_factory=lambda: _new_instance_id("adapter"))
     adapter: str = "stub"
     model_id: str = "stub-v1"
@@ -99,24 +103,38 @@ class Manifest:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Normalise component lists and ensure at least one adapter and generator exist."""
-        self.adapters = [
-            _ensure_adapter_instance_id(adapter) for adapter in self.adapters
-        ]
-        self.generators = [
-            _ensure_generator_instance_id(generator) for generator in self.generators
-        ]
-        self.judges = [
-            _ensure_judge_instance_id(judge) for judge in self.judges
-        ]
-        self.adapters = _normalise_adapters(self.adapters)
-        self.generators = _normalise_generators(self.generators)
-        self.judges = _normalise_judges(self.judges)
+        """Fill in default IDs / lists and validate ``pipeline_mode``."""
+        self.adapters = _ensure_components(
+            self.adapters,
+            prefix="adapter",
+            replace=lambda c, new_id: ManifestAdapter(
+                instance_id=new_id,
+                adapter=c.adapter,
+                model_id=c.model_id,
+                config=c.config,
+            ),
+            default_factory=ManifestAdapter,
+        )
+        self.generators = _ensure_components(
+            self.generators,
+            prefix="generator",
+            replace=lambda c, new_id: ManifestGenerator(
+                instance_id=new_id, name=c.name, config=c.config
+            ),
+            default_factory=ManifestGenerator,
+        )
+        self.judges = _ensure_components(
+            self.judges,
+            prefix="judge",
+            replace=lambda c, new_id: ManifestJudge(
+                instance_id=new_id, name=c.name, config=c.config
+            ),
+            default_factory=ManifestJudge,
+        )
+
         pipeline_mode = (self.pipeline_mode or "batch").lower()
         if pipeline_mode not in {"batch", "streaming"}:
-            raise ValueError(
-                "pipeline_mode must be 'batch' or 'streaming'"
-            )
+            raise ValueError("pipeline_mode must be 'batch' or 'streaming'")
         self.pipeline_mode = pipeline_mode
         self.force_generator_isolation = bool(self.force_generator_isolation)
 
@@ -144,48 +162,87 @@ class Manifest:
         }
 
 
-def _parse_raw(data: Dict[str, Any]) -> Manifest:
-    """Build a `Manifest` from a raw dict."""
-    adapters_raw = data.get("adapters")
-    generators_raw = data.get("generators")
-    judge_list = data.get("judges", [{}])
+# ---------------------------------------------------------------------------
+# Component-list normalisation (shared by adapters / generators / judges)
+# ---------------------------------------------------------------------------
 
-    adapters = _normalise_adapters(
-        _parse_component_list(
-            adapters_raw,
-            lambda item: ManifestAdapter(
-                instance_id=item.get("instance_id") or _new_instance_id("adapter"),
-                adapter=item.get("adapter", "stub"),
-                model_id=item.get("model_id", "stub-v1"),
-                config=item.get("config", {}),
-            ),
+T = TypeVar("T")
+
+
+def _ensure_components(
+    components: List[T] | None,
+    *,
+    prefix: str,
+    replace: Callable[[T, str], T],
+    default_factory: Callable[[], T],
+) -> List[T]:
+    """Return *components* with: at least one entry, every entry having an ID.
+
+    ``replace`` rebuilds an entry with a fresh ``instance_id`` (used when a
+    user supplied a component without one). ``default_factory`` provides a
+    sensible default when the list is empty.
+    """
+    if not components:
+        return [default_factory()]
+
+    return [
+        component if getattr(component, "instance_id", "") else replace(
+            component, _new_instance_id(prefix)
         )
+        for component in components
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Raw-dict parsing
+# ---------------------------------------------------------------------------
+
+def _parse_component_list(
+    raw_items: Any, builder: Callable[[Dict[str, Any]], T]
+) -> List[T] | None:
+    """Parse a list of manifest components, skipping malformed entries."""
+    if not isinstance(raw_items, list):
+        return None
+    return [builder(item) for item in raw_items if isinstance(item, dict)]
+
+
+def _build_adapter(item: Dict[str, Any]) -> ManifestAdapter:
+    return ManifestAdapter(
+        instance_id=item.get("instance_id") or _new_instance_id("adapter"),
+        adapter=item.get("adapter", "stub"),
+        model_id=item.get("model_id", "stub-v1"),
+        config=item.get("config", {}),
     )
-    generators = _normalise_generators(
-        _parse_component_list(
-            generators_raw,
-            lambda item: ManifestGenerator(
-                instance_id=item.get("instance_id") or _new_instance_id("generator"),
-                name=item.get("name", "stub-template"),
-                config=item.get("config", {}),
-            ),
-        )
+
+
+def _build_generator(item: Dict[str, Any]) -> ManifestGenerator:
+    return ManifestGenerator(
+        instance_id=item.get("instance_id") or _new_instance_id("generator"),
+        name=item.get("name", "stub-template"),
+        config=item.get("config", {}),
     )
-    judges = _parse_component_list(
-        judge_list,
-        lambda item: ManifestJudge(
-            instance_id=item.get("instance_id") or _new_instance_id("judge"),
-            name=item.get("name", "heuristic"),
-            config=item.get("config", {}),
-        ),
+
+
+def _build_judge(item: Dict[str, Any]) -> ManifestJudge:
+    return ManifestJudge(
+        instance_id=item.get("instance_id") or _new_instance_id("judge"),
+        name=item.get("name", "heuristic"),
+        config=item.get("config", {}),
     )
+
+
+def _parse_raw(data: Dict[str, Any]) -> Manifest:
+    """Build a :class:`Manifest` from a raw dict."""
+    adapters = _parse_component_list(data.get("adapters"), _build_adapter)
+    generators = _parse_component_list(data.get("generators"), _build_generator)
+    judges = _parse_component_list(data.get("judges", [{}]), _build_judge) or []
 
     return Manifest(
         experiment_id=data.get("experiment_id", f"exp-{uuid.uuid4().hex[:8]}"),
         author=data.get("author", ""),
         description=data.get("description", ""),
-        adapters=adapters,
-        generators=generators,
+        adapters=adapters or [],
+        generators=generators or [],
         judges=judges,
         seed=int(data.get("seed", 42)),
         batch_size=int(data.get("batch_size", 8)),
@@ -203,82 +260,9 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
     )
 
 
-def _normalise_adapters(adapters: List[ManifestAdapter] | None) -> List[ManifestAdapter]:
-    """Return a non-empty adapter list.
-
-    A manifest always needs at least one model adapter.  When none is
-    provided, use the built-in stub adapter as the default.
-    """
-    if adapters:
-        return list(adapters)
-    return [ManifestAdapter()]
-
-
-def _normalise_generators(generators: List[ManifestGenerator] | None) -> List[ManifestGenerator]:
-    """Return a non-empty generator list.
-
-    A manifest always needs at least one attack generator.  When none is
-    provided, use the built-in stub template generator as the default.
-    """
-    if generators:
-        return list(generators)
-    return [ManifestGenerator()]
-
-
-def _normalise_judges(judges: List[ManifestJudge] | None) -> List[ManifestJudge]:
-    """Return a non-empty judge list.
-
-    A manifest always needs at least one judge. When none is provided, use the
-    built-in heuristic judge as the default.
-    """
-    if judges:
-        return list(judges)
-    return [ManifestJudge()]
-
-
-def _ensure_adapter_instance_id(adapter: ManifestAdapter) -> ManifestAdapter:
-    if adapter.instance_id:
-        return adapter
-    return ManifestAdapter(
-        instance_id=_new_instance_id("adapter"),
-        adapter=adapter.adapter,
-        model_id=adapter.model_id,
-        config=adapter.config,
-    )
-
-
-def _ensure_generator_instance_id(generator: ManifestGenerator) -> ManifestGenerator:
-    if generator.instance_id:
-        return generator
-    return ManifestGenerator(
-        instance_id=_new_instance_id("generator"),
-        name=generator.name,
-        config=generator.config,
-    )
-
-
-def _ensure_judge_instance_id(judge: ManifestJudge) -> ManifestJudge:
-    if judge.instance_id:
-        return judge
-    return ManifestJudge(
-        instance_id=_new_instance_id("judge"),
-        name=judge.name,
-        config=judge.config,
-    )
-
-
-T = TypeVar("T")
-
-
-def _parse_component_list(
-    raw_items: Any,
-    builder: Callable[[Dict[str, Any]], T],
-) -> List[T] | None:
-    """Parse a list of manifest components while skipping malformed entries."""
-    if not isinstance(raw_items, list):
-        return None
-    return [builder(item) for item in raw_items if isinstance(item, dict)]
-
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
 def load_manifest(path: str | Path) -> Manifest:
     """Load a manifest from a YAML or JSON file.
@@ -288,27 +272,27 @@ def load_manifest(path: str | Path) -> Manifest:
     FileNotFoundError
         If *path* does not exist.
     ValueError
-        If the file format is unsupported or content is invalid.
+        If the file format is unsupported or its content is invalid.
     """
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Manifest not found: {p}")
 
     text = p.read_text(encoding="utf-8")
-
-    if p.suffix in (".yaml", ".yml"):
-        if yaml is None:
-            raise ImportError(
-                "PyYAML is required to load YAML manifests.  "
-                "Install it with: pip install pyyaml"
-            )
-        data = yaml.safe_load(text)
-    elif p.suffix == ".json":
-        data = json.loads(text)
-    else:
-        raise ValueError(f"Unsupported manifest format: {p.suffix}")
-
+    data = _parse_text(text, suffix=p.suffix)
     if not isinstance(data, dict):
         raise ValueError("Manifest root must be a mapping / object.")
-
     return _parse_raw(data)
+
+
+def _parse_text(text: str, *, suffix: str) -> Any:
+    if suffix in (".yaml", ".yml"):
+        if yaml is None:
+            raise ImportError(
+                "PyYAML is required to load YAML manifests. "
+                "Install it with: pip install pyyaml"
+            )
+        return yaml.safe_load(text)
+    if suffix == ".json":
+        return json.loads(text)
+    raise ValueError(f"Unsupported manifest format: {suffix}")

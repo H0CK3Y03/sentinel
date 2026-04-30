@@ -1,14 +1,16 @@
 """Comprehensive metrics collection and analysis for red-teaming experiments.
 
-Collects detailed trial-level and aggregate-level statistics on attack success,
-judge agreement, response characteristics, and verdict distributions.
+Collects detailed trial-level and aggregate-level statistics on attack
+success, judge agreement, response characteristics, and verdict
+distributions. Trials are recorded one at a time during a run and then
+aggregated at the end via :meth:`MetricsCollector.compute_aggregate`.
 """
 
 from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, Iterable, List
 
 from sentinel.models import ModelResponse, PromptCandidate, Verdict
 
@@ -31,7 +33,7 @@ class TrialMetrics:
     final_verdict_label: str = ""  # refusal | compliance | inconclusive
     final_verdict_confidence: float = 0.0
     judge_agreement: float = 0.0  # [0, 1] measure of consensus
-    attack_type: str = ""  # e.g., "single-turn", "prompt-injection", etc.
+    attack_type: str = ""
     model_id: str = ""
     adapter_instance_id: str = ""
     generator_instance_id: str = ""
@@ -56,10 +58,7 @@ class TrialMetrics:
 
     @staticmethod
     def compute_judge_agreement(verdicts: List[Verdict]) -> float:
-        """Measure consensus among judges: [0, 1] where 1 = all agree.
-
-        Simple measure: proportion of judges agreeing with the majority label.
-        """
+        """Return the share of judges that picked the most common label."""
         if not verdicts:
             return 0.0
 
@@ -67,14 +66,11 @@ class TrialMetrics:
         if not labels:
             return 0.0
 
-        # Find the most common label
         label_counts: Dict[str, int] = {}
         for label in labels:
             label_counts[label] = label_counts.get(label, 0) + 1
 
-        max_count = max(label_counts.values())
-        agreement = max_count / len(labels)
-        return round(agreement, 4)
+        return round(max(label_counts.values()) / len(labels), 4)
 
 
 # ---------------------------------------------------------------------------
@@ -91,37 +87,26 @@ class AggregateMetrics:
     total_inconclusive: int = 0
     total_errors: int = 0
 
-    # Rates
     refusal_rate: float = 0.0
     compliance_rate: float = 0.0
     inconclusive_rate: float = 0.0
     attack_success_rate: float = 0.0  # = compliance_rate
 
-    # Confidence metrics
     avg_confidence_compliance: float = 0.0
     avg_confidence_refusal: float = 0.0
     avg_confidence_inconclusive: float = 0.0
     avg_judge_agreement: float = 0.0
 
-    # Response characteristics
     avg_response_time_ms: float = 0.0
     median_response_time_ms: float = 0.0
     avg_response_tokens: int = 0
     median_response_tokens: int = 0
 
-    # Per-attack-type breakdown
     metrics_by_attack_type: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    # Per-generator-instance breakdown
     metrics_by_generator: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    # Per-adapter breakdown (model-indexed metrics)
     metrics_by_adapter: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    # Per-judge breakdown
     metrics_by_judge: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    # Distribution
     verdict_distribution: Dict[str, int] = field(default_factory=dict)
 
     elapsed_seconds: float = 0.0
@@ -155,14 +140,69 @@ class AggregateMetrics:
 
 
 # ---------------------------------------------------------------------------
+# Helpers shared by the per-group breakdowns
+# ---------------------------------------------------------------------------
+
+_VERDICT_LABELS = ("refusal", "compliance", "inconclusive")
+
+
+def _trial_group_summary(trials: List[TrialMetrics]) -> Dict[str, Any]:
+    """Per-group totals, ASR, judge agreement and average response time.
+
+    Used by ``metrics_by_generator`` and ``metrics_by_adapter``, which both
+    want the same fields.
+    """
+    if not trials:
+        return {
+            "total": 0,
+            "compliance": 0,
+            "refusal": 0,
+            "asr": 0.0,
+            "avg_judge_agreement": 0.0,
+            "avg_response_time_ms": 0.0,
+        }
+
+    compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
+    refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
+    response_times = [t.response_time_ms for t in trials if t.response_time_ms > 0]
+    return {
+        "total": len(trials),
+        "compliance": compliance,
+        "refusal": refusal,
+        "asr": round(compliance / len(trials), 4),
+        "avg_judge_agreement": round(
+            statistics.mean(t.judge_agreement for t in trials), 4
+        ),
+        "avg_response_time_ms": round(
+            statistics.mean(response_times) if response_times else 0.0, 2
+        ),
+    }
+
+
+def _bucket_by(items: Iterable[Any], key: Callable[[Any], str]) -> Dict[str, List[Any]]:
+    """Group ``items`` into a dict keyed by ``key(item)``."""
+    buckets: Dict[str, List[Any]] = {}
+    for item in items:
+        buckets.setdefault(key(item), []).append(item)
+    return buckets
+
+
+def _mean(values: Iterable[float]) -> float:
+    items = list(values)
+    return statistics.mean(items) if items else 0.0
+
+
+# ---------------------------------------------------------------------------
 # Metrics collector
 # ---------------------------------------------------------------------------
 
 class MetricsCollector:
-    """Accumulate and analyse trial-level and aggregate metrics."""
+    """Accumulate trial-level metrics and produce an :class:`AggregateMetrics`."""
 
     def __init__(self) -> None:
         self.trials: List[TrialMetrics] = []
+
+    # -- recording -----------------------------------------------------------
 
     def record_trial(
         self,
@@ -173,48 +213,51 @@ class MetricsCollector:
         attack_type: str = "",
     ) -> None:
         """Record a single trial and its evaluation results."""
-        # Compute judge agreement
-        judge_agreement = TrialMetrics.compute_judge_agreement(verdicts)
-
-        # Determine final verdict label
-        final_label = "inconclusive"
-        final_confidence = 0.0
-        if final_verdict:
-            final_label = final_verdict.labels[0] if final_verdict.labels else "inconclusive"
-            final_confidence = final_verdict.confidence
-
-        # Estimate prompt tokens (rough heuristic)
-        prompt_tokens = len(prompt.text.split()) if prompt.text else 0
-
+        final_label, final_confidence = self._unpack_final_verdict(final_verdict)
         trial = TrialMetrics(
             prompt_id=prompt.prompt_id,
             prompt_text=prompt.text,
             response_text=response.text,
             response_time_ms=response.latency_ms,
-            prompt_tokens=prompt_tokens,
+            prompt_tokens=len(prompt.text.split()) if prompt.text else 0,
             response_tokens=response.tokens,
             verdicts=verdicts,
             final_verdict_label=final_label,
             final_verdict_confidence=final_confidence,
-            judge_agreement=judge_agreement,
+            judge_agreement=TrialMetrics.compute_judge_agreement(verdicts),
             attack_type=attack_type,
             model_id=response.model_id,
             adapter_instance_id=response.adapter_instance_id,
             generator_instance_id=prompt.metadata.get("generator_instance_id", ""),
         )
-
         self.trials.append(trial)
+
+    @staticmethod
+    def _unpack_final_verdict(final_verdict: Verdict | None) -> tuple[str, float]:
+        if final_verdict is None:
+            return "inconclusive", 0.0
+        label = final_verdict.labels[0] if final_verdict.labels else "inconclusive"
+        return label, final_verdict.confidence
+
+    # -- aggregation ---------------------------------------------------------
 
     def compute_aggregate(self, elapsed_seconds: float = 0.0) -> AggregateMetrics:
         """Compute aggregate statistics from all recorded trials."""
         agg = AggregateMetrics(elapsed_seconds=elapsed_seconds)
-
         if not self.trials:
             return agg
 
         agg.total_trials = len(self.trials)
+        self._fill_verdict_totals(agg)
+        self._fill_rates(agg)
+        self._fill_confidence_averages(agg)
+        self._fill_response_characteristics(agg)
+        self._fill_per_group_breakdowns(agg)
+        return agg
 
-        # Count verdicts
+    # -- aggregation helpers -------------------------------------------------
+
+    def _fill_verdict_totals(self, agg: AggregateMetrics) -> None:
         for trial in self.trials:
             if trial.final_verdict_label == "refusal":
                 agg.total_refusals += 1
@@ -223,44 +266,36 @@ class MetricsCollector:
             elif trial.final_verdict_label == "inconclusive":
                 agg.total_inconclusive += 1
 
-        # Calculate rates
-        valid_trials = agg.total_trials
-        if valid_trials > 0:
-            agg.refusal_rate = agg.total_refusals / valid_trials
-            agg.compliance_rate = agg.total_compliances / valid_trials
-            agg.inconclusive_rate = agg.total_inconclusive / valid_trials
-            agg.attack_success_rate = agg.compliance_rate
+        for label in _VERDICT_LABELS:
+            agg.verdict_distribution[label] = sum(
+                1 for t in self.trials if t.final_verdict_label == label
+            )
 
-        # Average confidence by verdict type
-        compliance_confidences = [
-            t.final_verdict_confidence
-            for t in self.trials
-            if t.final_verdict_label == "compliance"
-        ]
-        refusal_confidences = [
-            t.final_verdict_confidence
-            for t in self.trials
-            if t.final_verdict_label == "refusal"
-        ]
-        inconclusive_confidences = [
-            t.final_verdict_confidence
-            for t in self.trials
-            if t.final_verdict_label == "inconclusive"
-        ]
+    @staticmethod
+    def _fill_rates(agg: AggregateMetrics) -> None:
+        if agg.total_trials <= 0:
+            return
+        agg.refusal_rate = agg.total_refusals / agg.total_trials
+        agg.compliance_rate = agg.total_compliances / agg.total_trials
+        agg.inconclusive_rate = agg.total_inconclusive / agg.total_trials
+        agg.attack_success_rate = agg.compliance_rate
 
-        if compliance_confidences:
-            agg.avg_confidence_compliance = statistics.mean(compliance_confidences)
-        if refusal_confidences:
-            agg.avg_confidence_refusal = statistics.mean(refusal_confidences)
-        if inconclusive_confidences:
-            agg.avg_confidence_inconclusive = statistics.mean(inconclusive_confidences)
+    def _fill_confidence_averages(self, agg: AggregateMetrics) -> None:
+        for label, attr in (
+            ("compliance", "avg_confidence_compliance"),
+            ("refusal", "avg_confidence_refusal"),
+            ("inconclusive", "avg_confidence_inconclusive"),
+        ):
+            confidences = [
+                t.final_verdict_confidence
+                for t in self.trials
+                if t.final_verdict_label == label
+            ]
+            setattr(agg, attr, _mean(confidences))
 
-        # Judge agreement
-        judge_agreements = [t.judge_agreement for t in self.trials]
-        if judge_agreements:
-            agg.avg_judge_agreement = statistics.mean(judge_agreements)
+        agg.avg_judge_agreement = _mean(t.judge_agreement for t in self.trials)
 
-        # Response characteristics
+    def _fill_response_characteristics(self, agg: AggregateMetrics) -> None:
         response_times = [t.response_time_ms for t in self.trials if t.response_time_ms > 0]
         if response_times:
             agg.avg_response_time_ms = statistics.mean(response_times)
@@ -271,98 +306,49 @@ class MetricsCollector:
             agg.avg_response_tokens = int(statistics.mean(response_tokens))
             agg.median_response_tokens = int(statistics.median(response_tokens))
 
-        # Verdict distribution
-        for label in ("refusal", "compliance", "inconclusive"):
-            count = sum(1 for t in self.trials if t.final_verdict_label == label)
-            agg.verdict_distribution[label] = count
+    def _fill_per_group_breakdowns(self, agg: AggregateMetrics) -> None:
+        agg.metrics_by_attack_type = self._attack_type_breakdown()
+        agg.metrics_by_generator = self._trial_breakdown(
+            lambda t: t.generator_instance_id or t.attack_type or "unknown"
+        )
+        agg.metrics_by_adapter = self._trial_breakdown(
+            lambda t: t.adapter_instance_id or t.model_id or "unknown"
+        )
+        agg.metrics_by_judge = self._judge_breakdown()
 
-        # Metrics by attack type
-        attack_types: Dict[str, List[TrialMetrics]] = {}
-        for trial in self.trials:
-            atype = trial.attack_type or "unknown"
-            if atype not in attack_types:
-                attack_types[atype] = []
-            attack_types[atype].append(trial)
-
-        for atype, trials in attack_types.items():
-            count_compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
-            count_refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
-            asr_for_type = count_compliance / len(trials) if trials else 0.0
-            agg.metrics_by_attack_type[atype] = {
+    def _attack_type_breakdown(self) -> Dict[str, Dict[str, Any]]:
+        """Compact breakdown used by ``metrics_by_attack_type`` (no agreement field)."""
+        groups = _bucket_by(self.trials, key=lambda t: t.attack_type or "unknown")
+        breakdown: Dict[str, Dict[str, Any]] = {}
+        for atype, trials in groups.items():
+            compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
+            refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
+            breakdown[atype] = {
                 "total": len(trials),
-                "compliance": count_compliance,
-                "refusal": count_refusal,
-                "asr": round(asr_for_type, 4),
+                "compliance": compliance,
+                "refusal": refusal,
+                "asr": round(compliance / len(trials), 4) if trials else 0.0,
             }
+        return breakdown
 
-        # Metrics by generator instance
-        generators: Dict[str, List[TrialMetrics]] = {}
-        for trial in self.trials:
-            generator_id = trial.generator_instance_id or trial.attack_type or "unknown"
-            if generator_id not in generators:
-                generators[generator_id] = []
-            generators[generator_id].append(trial)
+    def _trial_breakdown(
+        self, key: Callable[[TrialMetrics], str]
+    ) -> Dict[str, Dict[str, Any]]:
+        groups = _bucket_by(self.trials, key=key)
+        return {key_: _trial_group_summary(trials) for key_, trials in groups.items()}
 
-        for generator_id, trials in generators.items():
-            count_compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
-            count_refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
-            asr_for_generator = count_compliance / len(trials) if trials else 0.0
-            avg_agreement = statistics.mean([t.judge_agreement for t in trials]) if trials else 0.0
-            response_times = [t.response_time_ms for t in trials if t.response_time_ms > 0]
-            avg_response_time = statistics.mean(response_times) if response_times else 0.0
-            agg.metrics_by_generator[generator_id] = {
-                "total": len(trials),
-                "compliance": count_compliance,
-                "refusal": count_refusal,
-                "asr": round(asr_for_generator, 4),
-                "avg_judge_agreement": round(avg_agreement, 4),
-                "avg_response_time_ms": round(avg_response_time, 2),
-            }
-
-        # Metrics by adapter (model-indexed breakdown)
-        adapters: Dict[str, List[TrialMetrics]] = {}
-        for trial in self.trials:
-            adapter_id = trial.adapter_instance_id or trial.model_id or "unknown"
-            if adapter_id not in adapters:
-                adapters[adapter_id] = []
-            adapters[adapter_id].append(trial)
-
-        for adapter_id, trials in adapters.items():
-            count_compliance = sum(1 for t in trials if t.final_verdict_label == "compliance")
-            count_refusal = sum(1 for t in trials if t.final_verdict_label == "refusal")
-            asr_for_adapter = count_compliance / len(trials) if trials else 0.0
-            avg_agreement = statistics.mean([t.judge_agreement for t in trials]) if trials else 0.0
-            response_times = [t.response_time_ms for t in trials if t.response_time_ms > 0]
-            avg_response_time = statistics.mean(response_times) if response_times else 0.0
-            agg.metrics_by_adapter[adapter_id] = {
-                "total": len(trials),
-                "compliance": count_compliance,
-                "refusal": count_refusal,
-                "asr": round(asr_for_adapter, 4),
-                "avg_judge_agreement": round(avg_agreement, 4),
-                "avg_response_time_ms": round(avg_response_time, 2),
-            }
-
-        # Metrics by judge
-        judge_names: Dict[str, List[Verdict]] = {}
+    def _judge_breakdown(self) -> Dict[str, Dict[str, Any]]:
+        per_judge: Dict[str, List[Verdict]] = {}
         for trial in self.trials:
             for verdict in trial.verdicts:
                 judge_id = verdict.judge_instance_id or verdict.judge_type or "unknown"
-                if judge_id not in judge_names:
-                    judge_names[judge_id] = []
-                judge_names[judge_id].append(verdict)
+                per_judge.setdefault(judge_id, []).append(verdict)
 
-        for judge_id, verdicts in judge_names.items():
-            count_compliance = sum(
-                1 for v in verdicts if "compliance" in v.labels
-            )
-            count_refusal = sum(
-                1 for v in verdicts if "refusal" in v.labels
-            )
-            agg.metrics_by_judge[judge_id] = {
+        breakdown: Dict[str, Dict[str, Any]] = {}
+        for judge_id, verdicts in per_judge.items():
+            breakdown[judge_id] = {
                 "total_verdicts": len(verdicts),
-                "compliance": count_compliance,
-                "refusal": count_refusal,
+                "compliance": sum(1 for v in verdicts if "compliance" in v.labels),
+                "refusal": sum(1 for v in verdicts if "refusal" in v.labels),
             }
-
-        return agg
+        return breakdown

@@ -1,31 +1,34 @@
-"""Plugin discovery and component registry.
+"""Plugin discovery and component factories.
 
-Provides factory functions that map names from an experiment manifest to
-concrete adapter, generator, and judge instances.
-
-Built-in components are always available. Third-party plugins can be exposed
-via Python entry points and are discovered at runtime.
+The toolkit has three kinds of pluggable components - model adapters,
+attack generators, and judges. They share the same shape: a built-in
+registry mapping ``name`` to ``class``, a Python entry-point group for
+third-party plugins, and a factory function the orchestrator calls with
+the manifest config. This module captures that pattern in one
+:class:`_Registry` helper and uses it to build the three public APIs.
 """
 
 from __future__ import annotations
 
-from functools import lru_cache
+from dataclasses import dataclass, field
 from importlib.metadata import entry_points
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
-from sentinel.model_adapters.base import ModelAdapter
-from sentinel.model_adapters.stub import StubAdapter
 from sentinel.generators.base import AttackGenerator
-from sentinel.generators.stub import StubAttackGenerator
-from sentinel.generators.single_turn_jailbreak import SingleTurnJailbreakGenerator
+from sentinel.generators.multi_turn_conversation import MultiTurnConversationGenerator
 from sentinel.generators.prompt_injection import PromptInjectionGenerator
+from sentinel.generators.single_turn_jailbreak import SingleTurnJailbreakGenerator
+from sentinel.generators.stub import StubAttackGenerator
 from sentinel.generators.token_perturbation import TokenPerturbationGenerator
 from sentinel.generators.universal_trigger import UniversalTriggerGenerator
-from sentinel.generators.multi_turn_conversation import MultiTurnConversationGenerator
 from sentinel.judges.base import JudgeAdapter
 from sentinel.judges.heuristic import HeuristicJudge
 from sentinel.judges.stub import StubJudge
+from sentinel.model_adapters.base import ModelAdapter
+from sentinel.model_adapters.stub import StubAdapter
 
+# Optional integrations: imported defensively so the package still works
+# without the llama-cpp dependency installed.
 try:
     from sentinel.judges.llama_cpp import LlamaCppJudge
 except ImportError:  # pragma: no cover - optional dependency
@@ -41,112 +44,130 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     LlamaCppAttackGenerator = None  # type: ignore[assignment]
 
+
+# ---------------------------------------------------------------------------
+# Generic registry helper
+# ---------------------------------------------------------------------------
+
 T = TypeVar("T")
 
-_ADAPTER_ENTRYPOINT_GROUP = "sentinel.model_adapters"
-_GENERATOR_ENTRYPOINT_GROUP = "sentinel.generators"
-_JUDGE_ENTRYPOINT_GROUP = "sentinel.judges"
 
-# ---------------------------------------------------------------------------
-# Built-in registries (name → class)
-# ---------------------------------------------------------------------------
-
-_ADAPTER_REGISTRY: Dict[str, Type[ModelAdapter]] = {
-    "stub": StubAdapter,
-}
-
-if LlamaCppModelAdapter is not None:
-    _ADAPTER_REGISTRY["llama-cpp"] = LlamaCppModelAdapter
-
-_GENERATOR_REGISTRY: Dict[str, Type[AttackGenerator]] = {
-    "stub-template": StubAttackGenerator,
-    "single-turn-jailbreak": SingleTurnJailbreakGenerator,
-    "prompt-injection": PromptInjectionGenerator,
-    "token-perturbation": TokenPerturbationGenerator,
-    "universal-trigger": UniversalTriggerGenerator,
-    "multi-turn-conversation": MultiTurnConversationGenerator,
-}
-
-if LlamaCppAttackGenerator is not None:
-    _GENERATOR_REGISTRY["llama-cpp-attacker"] = LlamaCppAttackGenerator
-
-_JUDGE_REGISTRY: Dict[str, Type[JudgeAdapter]] = {
-    "heuristic": HeuristicJudge,
-    "stub-judge": StubJudge,
-}
-
-if LlamaCppJudge is not None:
-    _JUDGE_REGISTRY["llama-cpp-judge"] = LlamaCppJudge
-
-
-def _iter_group_entry_points(group: str):
+def _iter_entry_points(group: str):
     eps = entry_points()
     if hasattr(eps, "select"):
         return eps.select(group=group)
     return eps.get(group, [])
 
 
-@lru_cache(maxsize=1)
-def _discover_adapters() -> Dict[str, Type[ModelAdapter]]:
-    discovered: Dict[str, Type[ModelAdapter]] = {}
-    for ep in _iter_group_entry_points(_ADAPTER_ENTRYPOINT_GROUP):
-        obj = ep.load()
-        if isinstance(obj, type) and issubclass(obj, ModelAdapter):
-            discovered[ep.name] = obj
-    return discovered
+@dataclass
+class _Registry(Generic[T]):
+    """Built-in registry plus lazy entry-point discovery for one component kind."""
 
+    label: str
+    base_class: Type[T]
+    entry_point_group: str
+    builtin: Dict[str, Type[T]] = field(default_factory=dict)
+    _discovered: Optional[Dict[str, Type[T]]] = None
 
-@lru_cache(maxsize=1)
-def _discover_generators() -> Dict[str, Type[AttackGenerator]]:
-    discovered: Dict[str, Type[AttackGenerator]] = {}
-    for ep in _iter_group_entry_points(_GENERATOR_ENTRYPOINT_GROUP):
-        obj = ep.load()
-        if isinstance(obj, type) and issubclass(obj, AttackGenerator):
-            discovered[ep.name] = obj
-    return discovered
+    def register(self, name: str, cls: Type[T]) -> None:
+        self.builtin[name] = cls
 
+    def names(self) -> List[str]:
+        return sorted(set(self.builtin) | set(self._discover()))
 
-@lru_cache(maxsize=1)
-def _discover_judges() -> Dict[str, Type[JudgeAdapter]]:
-    discovered: Dict[str, Type[JudgeAdapter]] = {}
-    for ep in _iter_group_entry_points(_JUDGE_ENTRYPOINT_GROUP):
-        obj = ep.load()
-        if isinstance(obj, type) and issubclass(obj, JudgeAdapter):
-            discovered[ep.name] = obj
-    return discovered
+    def get(self, name: str) -> Type[T]:
+        cls = self.builtin.get(name) or self._discover().get(name)
+        if cls is None:
+            raise KeyError(f"Unknown {self.label} '{name}'.  Available: {self.names()}")
+        return cls
+
+    def _discover(self) -> Dict[str, Type[T]]:
+        """Return third-party components advertised via Python entry-points (cached)."""
+        if self._discovered is not None:
+            return self._discovered
+
+        discovered: Dict[str, Type[T]] = {}
+        for ep in _iter_entry_points(self.entry_point_group):
+            obj = ep.load()
+            if isinstance(obj, type) and issubclass(obj, self.base_class):
+                discovered[ep.name] = obj
+
+        self._discovered = discovered
+        return discovered
 
 
 # ---------------------------------------------------------------------------
-# Public helpers
+# Built-in registries
+# ---------------------------------------------------------------------------
+
+_ADAPTERS: _Registry[ModelAdapter] = _Registry(
+    label="adapter",
+    base_class=ModelAdapter,
+    entry_point_group="sentinel.model_adapters",
+    builtin={"stub": StubAdapter},
+)
+if LlamaCppModelAdapter is not None:
+    _ADAPTERS.register("llama-cpp", LlamaCppModelAdapter)
+
+_GENERATORS: _Registry[AttackGenerator] = _Registry(
+    label="generator",
+    base_class=AttackGenerator,
+    entry_point_group="sentinel.generators",
+    builtin={
+        "stub-template": StubAttackGenerator,
+        "single-turn-jailbreak": SingleTurnJailbreakGenerator,
+        "prompt-injection": PromptInjectionGenerator,
+        "token-perturbation": TokenPerturbationGenerator,
+        "universal-trigger": UniversalTriggerGenerator,
+        "multi-turn-conversation": MultiTurnConversationGenerator,
+    },
+)
+if LlamaCppAttackGenerator is not None:
+    _GENERATORS.register("llama-cpp-attacker", LlamaCppAttackGenerator)
+
+_JUDGES: _Registry[JudgeAdapter] = _Registry(
+    label="judge",
+    base_class=JudgeAdapter,
+    entry_point_group="sentinel.judges",
+    builtin={
+        "heuristic": HeuristicJudge,
+        "stub-judge": StubJudge,
+    },
+)
+if LlamaCppJudge is not None:
+    _JUDGES.register("llama-cpp-judge", LlamaCppJudge)
+
+
+# ---------------------------------------------------------------------------
+# Public API
 # ---------------------------------------------------------------------------
 
 def register_adapter(name: str, cls: Type[ModelAdapter]) -> None:
-    _ADAPTER_REGISTRY[name] = cls
+    _ADAPTERS.register(name, cls)
 
 
 def register_generator(name: str, cls: Type[AttackGenerator]) -> None:
-    _GENERATOR_REGISTRY[name] = cls
+    _GENERATORS.register(name, cls)
 
 
 def register_judge(name: str, cls: Type[JudgeAdapter]) -> None:
-    _JUDGE_REGISTRY[name] = cls
+    _JUDGES.register(name, cls)
 
 
-def list_adapters() -> list[str]:
-    return sorted(set(_ADAPTER_REGISTRY) | set(_discover_adapters()))
+def list_adapters() -> List[str]:
+    return _ADAPTERS.names()
 
 
-def list_generators() -> list[str]:
-    return sorted(set(_GENERATOR_REGISTRY) | set(_discover_generators()))
+def list_generators() -> List[str]:
+    return _GENERATORS.names()
 
 
-def list_judges() -> list[str]:
-    return sorted(set(_JUDGE_REGISTRY) | set(_discover_judges()))
+def list_judges() -> List[str]:
+    return _JUDGES.names()
 
 
-# ---------------------------------------------------------------------------
-# Factory functions used by the orchestrator
-# ---------------------------------------------------------------------------
+# Factory functions used by the orchestrator. They differ in signature
+# because each component takes different constructor arguments.
 
 def create_adapter(
     name: str,
@@ -154,33 +175,21 @@ def create_adapter(
     config: Dict[str, Any] | None = None,
     instance_id: str = "",
 ) -> ModelAdapter:
-    cls = _ADAPTER_REGISTRY.get(name) or _discover_adapters().get(name)
-    if cls is None:
-        raise KeyError(
-            f"Unknown adapter '{name}'.  Available: {list_adapters()}"
-        )
+    cls = _ADAPTERS.get(name)
     adapter = cls(model_id=model_id, config=config)
     adapter.instance_id = instance_id
     return adapter
 
 
 def create_generator(name: str, instance_id: str = "") -> AttackGenerator:
-    cls = _GENERATOR_REGISTRY.get(name) or _discover_generators().get(name)
-    if cls is None:
-        raise KeyError(
-            f"Unknown generator '{name}'.  Available: {list_generators()}"
-        )
+    cls = _GENERATORS.get(name)
     generator = cls(name=name)
     generator.instance_id = instance_id
     return generator
 
 
 def create_judge(name: str, instance_id: str = "") -> JudgeAdapter:
-    cls = _JUDGE_REGISTRY.get(name) or _discover_judges().get(name)
-    if cls is None:
-        raise KeyError(
-            f"Unknown judge '{name}'.  Available: {list_judges()}"
-        )
+    cls = _JUDGES.get(name)
     judge = cls(name=name)
     judge.instance_id = instance_id
     return judge
