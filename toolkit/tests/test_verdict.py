@@ -6,8 +6,8 @@ from sentinel.models import JudgeType, ModelResponse, PromptCandidate, Verdict
 from sentinel.verdict import aggregate_final_verdict
 
 
-def _verdict(label: str) -> Verdict:
-    return Verdict(labels=[label], confidence=1.0, judge_type=JudgeType.HEURISTIC.value)
+def _verdict(label: str, confidence: float = 1.0) -> Verdict:
+    return Verdict(labels=[label], confidence=confidence, judge_type=JudgeType.HEURISTIC.value)
 
 
 def _setup() -> tuple[PromptCandidate, ModelResponse]:
@@ -36,8 +36,8 @@ def test_majority_refusal() -> None:
         [_verdict("refusal"), _verdict("refusal"), _verdict("compliance")],
     )
     assert final.labels == ["refusal"]
-    # 2 of 3 judges agreed -> confidence 2/3 rounded
-    assert final.confidence == round(2 / 3, 4)
+    # confidence = avg of individual judge confidences (all 1.0 here)
+    assert final.confidence == 1.0
 
 
 def test_tie_resolves_to_inconclusive() -> None:
@@ -49,8 +49,20 @@ def test_tie_resolves_to_inconclusive() -> None:
         [_verdict("compliance"), _verdict("refusal")],
     )
     assert final.labels == ["inconclusive"]
-    # No judge said inconclusive, so the confidence reflects that.
-    assert final.confidence == 0.0
+    # confidence = avg of individual judge confidences (all 1.0 here)
+    assert final.confidence == 1.0
+
+
+def test_confidence_is_average_of_judge_confidences() -> None:
+    prompt, response = _setup()
+    final = aggregate_final_verdict(
+        "exp",
+        prompt,
+        response,
+        [_verdict("refusal", 0.9), _verdict("refusal", 0.7), _verdict("compliance", 0.5)],
+    )
+    assert final.labels == ["refusal"]
+    assert final.confidence == round((0.9 + 0.7 + 0.5) / 3, 4)
 
 
 def test_no_verdicts_defaults_to_inconclusive() -> None:

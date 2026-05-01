@@ -16,6 +16,8 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from sentinel.generators.base import AttackGenerator
 from sentinel.generators.multi_turn_conversation import MultiTurnConversationGenerator
+from sentinel.generators.obfuscation import ObfuscationGenerator
+from sentinel.generators.openai_api import OpenAIApiAttackGenerator
 from sentinel.generators.prompt_injection import PromptInjectionGenerator
 from sentinel.generators.single_turn_jailbreak import SingleTurnJailbreakGenerator
 from sentinel.generators.stub import StubAttackGenerator
@@ -23,6 +25,7 @@ from sentinel.generators.token_perturbation import TokenPerturbationGenerator
 from sentinel.generators.universal_trigger import UniversalTriggerGenerator
 from sentinel.judges.base import JudgeAdapter
 from sentinel.judges.heuristic import HeuristicJudge
+from sentinel.judges.openai_api import OpenAIApiJudge
 from sentinel.judges.stub import StubJudge
 from sentinel.model_adapters.base import ModelAdapter
 from sentinel.model_adapters.stub import StubAdapter
@@ -125,6 +128,8 @@ _GENERATORS: _Registry[AttackGenerator] = _Registry(
         "token-perturbation": TokenPerturbationGenerator,
         "universal-trigger": UniversalTriggerGenerator,
         "multi-turn-conversation": MultiTurnConversationGenerator,
+        "obfuscation": ObfuscationGenerator,
+        "openai-api-attacker": OpenAIApiAttackGenerator,
     },
 )
 if LlamaCppAttackGenerator is not None:
@@ -137,6 +142,7 @@ _JUDGES: _Registry[JudgeAdapter] = _Registry(
     builtin={
         "heuristic": HeuristicJudge,
         "stub-judge": StubJudge,
+        "openai-api-judge": OpenAIApiJudge,
     },
 )
 if LlamaCppJudge is not None:

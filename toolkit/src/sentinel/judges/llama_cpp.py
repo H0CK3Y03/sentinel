@@ -147,6 +147,11 @@ class LlamaCppJudge(JudgeAdapter):
             temperature=self._temperature,
             max_tokens=self._max_tokens,
         )
+        usage = chat_result.get("usage", {})
+        self.tokens_used += next(
+            (usage.get(k) for k in ("total_tokens", "completion_tokens") if isinstance(usage.get(k), int)),
+            0,
+        )
         raw_text = chat_result["choices"][0]["message"]["content"]
         label, confidence, explanation = self._parse_label(raw_text)
 

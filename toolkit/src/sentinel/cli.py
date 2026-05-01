@@ -17,8 +17,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
 
 import typer
 
@@ -57,8 +58,26 @@ def run(
 
     total_expected = _compute_total_expected(manifest)
 
-    callback: Optional[Callable] = None if quiet else _make_trial_callback(total_expected)
-    summary = asyncio.run(Orchestrator(manifest, on_trial_complete=callback).run())
+    if quiet:
+        orch = Orchestrator(manifest)
+    else:
+        gen_names = [
+            create_generator(g.name).get_display_name()
+            for g in manifest.generators
+        ]
+        on_trial_complete, on_gen_start, on_adp_start, on_jdg_start, finalize = (
+            _make_callbacks(total_expected, gen_names)
+        )
+        orch = Orchestrator(
+            manifest,
+            on_trial_complete=on_trial_complete,
+            on_generation_start=on_gen_start,
+            on_adapter_start=on_adp_start,
+            on_judge_start=on_jdg_start,
+        )
+    summary = asyncio.run(orch.run())
+    if not quiet:
+        finalize()
     _print_run_summary(summary, manifest)
 
 
@@ -289,7 +308,7 @@ def _verdict_color(label: str) -> str:
 # Column widths — keep in sync with the format strings in _make_trial_callback.
 # The progress bracket "  [XXXX/XXXX] " is 14 chars and is not a configurable width.
 _COL_VERDICT = 13   # "COMPLIANCE   "
-_COL_CONF    =  6   # "(75%)  "
+_COL_CONF    =  6   # "(75%)  "  — shows inter-judge agreement, not per-judge confidence
 _COL_LATENCY =  8   # "2500ms" right-aligned
 _COL_TOKENS  =  7   # "123tok " left-padded
 _COL_ATTACK  = 10   # "jailbreak " left-padded
@@ -297,35 +316,210 @@ _COL_ATTACK  = 10   # "jailbreak " left-padded
 
 def _trial_header() -> None:
     """Print the column-name row and a separator line."""
-    # "  [XXXX/XXXX] " is exactly 14 chars; mirror it with "  [ progress] ".
+    # "  [XXXX/~XXX] " is exactly 15 chars; mirror it with "  [ progress] ".
     typer.secho(
-        f"  [{'progress':>9}] "        # 14 chars — matches "  [   1/  90] "
+        f"  [{'progress':>9}] "        # 14 chars — matches "  [   1/~  90] "
         f"{'verdict':<{_COL_VERDICT}}"  # 13 chars
-        f" {'conf':<{_COL_CONF}}"       #  7 chars (leading space + 6)
-        f"  {'latency':>{_COL_LATENCY}}"  # 10 chars
-        f"  {'tokens':<{_COL_TOKENS}}"    #  9 chars
-        f"  {'attack':<{_COL_ATTACK}}"    # 12 chars
+        f" {'agr':<{_COL_CONF}}"        #  7 chars — agreement across judges
+        f"  {'latency':>{_COL_LATENCY}}"
+        f"  {'tokens':<{_COL_TOKENS}}"
+        f"  {'attack':<{_COL_ATTACK}}"
         f"  prompt",
         fg=typer.colors.BRIGHT_BLACK,
     )
     typer.secho("  " + "─" * 90, fg=typer.colors.BRIGHT_BLACK)
 
 
-def _make_trial_callback(total_expected: int) -> Callable:
-    """Return a callback that prints one line per completed trial."""
-    _trial_header()
+class _LivePanel:
+    """Multi-line live status panel: one row per generator, three stage columns.
 
-    def callback(
+    Uses ANSI cursor-up (\033[NF) to overwrite the panel in-place.  Trial
+    result lines are inserted above the panel by moving up before printing,
+    then redrawing the panel below.
+
+    Stage counts per slot:
+        _GEN   — generator is producing a prompt (LLM call in progress)
+        _RESP  — adapter is querying the target model
+        _JUDGE — judges are evaluating the response
+    """
+
+    _GEN, _RESP, _JUDGE = 0, 1, 2
+    _STAGE_LABELS        = ("generating", "responding", "judging")
+    _STAGE_HEADER_LABELS = ("generator",  "adapter",    "judge")
+    _STAGE_COLORS        = (typer.colors.YELLOW, typer.colors.CYAN, typer.colors.MAGENTA)
+    _COL_NAME  = 14
+    _COL_STAGE = 16
+
+    def __init__(self, slot_names: list[str]) -> None:
+        self._names = slot_names
+        # [gen_count, resp_count, judge_count] per slot name
+        self._state: Dict[str, list[int]] = {n: [0, 0, 0] for n in slot_names}
+        # stages that have been active (count > 0) in the current batch
+        self._ever_active: Dict[str, set[int]] = {n: set() for n in slot_names}
+        # stages currently showing "done" (were active, count fell to 0)
+        self._done_stages: Dict[str, set[int]] = {n: set() for n in slot_names}
+        self._done: set[str] = set()
+        self._initialized = False
+
+    # -- stage transitions ---------------------------------------------------
+
+    def generation_start(self, name: str) -> None:
+        # New batch starts — reset per-stage done state for this slot.
+        if name in self._done_stages:
+            self._done_stages[name].clear()
+            self._ever_active[name].clear()
+        self._inc(name, self._GEN, +1)
+
+    def adapter_start(self, name: str) -> None:
+        self._inc(name, self._GEN, -1)
+        self._inc(name, self._RESP, +1)
+
+    def judge_start(self, name: str) -> None:
+        self._inc(name, self._RESP, -1)
+        self._inc(name, self._JUDGE, +1)
+
+    def trial_done(self, name: str) -> None:
+        """Decrement whichever stage is active (judge → resp fallback for errors)."""
+        if name not in self._state:
+            return
+        s = self._state[name]
+        if s[self._JUDGE] > 0:
+            self._inc(name, self._JUDGE, -1)
+        elif s[self._RESP] > 0:
+            self._inc(name, self._RESP, -1)
+
+    def _inc(self, name: str, stage: int, delta: int) -> None:
+        if name not in self._state:
+            return
+        s = self._state[name]
+        if delta > 0:
+            self._ever_active[name].add(stage)
+            self._done_stages[name].discard(stage)
+        s[stage] = max(0, s[stage] + delta)
+        if delta < 0 and s[stage] == 0 and stage in self._ever_active[name]:
+            self._done_stages[name].add(stage)
+        self._redraw()
+
+    # -- rendering -----------------------------------------------------------
+
+    def _render_stage(self, label: str, count: int, color: str, is_done: bool = False) -> str:
+        if is_done:
+            text = f"{'done':<{self._COL_STAGE}}"
+            return typer.style(text, fg=typer.colors.GREEN)
+        if count == 0:
+            text = f"{'--':<{self._COL_STAGE}}"
+            return typer.style(text, fg=typer.colors.BRIGHT_BLACK)
+        suffix = f"({count})" if count > 1 else "..."
+        text = f"{label + suffix:<{self._COL_STAGE}}"
+        return typer.style(text, fg=color)
+
+    def _render_row(self, name: str) -> str:
+        name_col = typer.style(f"{name:<{self._COL_NAME}}", fg=typer.colors.BRIGHT_BLACK)
+        if name in self._done:
+            done_col = typer.style("complete", fg=typer.colors.GREEN)
+            return f"  {name_col}  {done_col}"
+        s = self._state[name]
+        done_s = self._done_stages.get(name, set())
+        stages = "  ".join(
+            self._render_stage(lbl, s[i], col, i in done_s)
+            for i, (lbl, col) in enumerate(zip(self._STAGE_LABELS, self._STAGE_COLORS))
+        )
+        return f"  {name_col}  {stages}"
+
+    def _panel_height(self) -> int:
+        """Total lines occupied by the panel (header + separator + generator rows)."""
+        return len(self._names) + 2
+
+    def _draw_panel(self) -> None:
+        header = (
+            "  "
+            + typer.style(f"{'name':<{self._COL_NAME}}", fg=typer.colors.BRIGHT_BLACK)
+            + "  "
+            + "  ".join(
+                typer.style(f"{lbl:<{self._COL_STAGE}}", fg=col)
+                for lbl, col in zip(self._STAGE_HEADER_LABELS, self._STAGE_COLORS)
+            )
+        )
+        sep_len = self._COL_NAME + 2 + (self._COL_STAGE + 2) * 3 - 2
+        separator = typer.style("  " + "─" * sep_len, fg=typer.colors.BRIGHT_BLACK)
+        sys.stdout.write(f"\r\033[K{header}\n")
+        sys.stdout.write(f"\r\033[K{separator}\n")
+        for name in self._names:
+            sys.stdout.write(f"\r\033[K{self._render_row(name)}\n")
+        sys.stdout.flush()
+        self._initialized = True
+
+    def _redraw(self) -> None:
+        if self._initialized:
+            sys.stdout.write(f"\033[{self._panel_height()}F")
+        self._draw_panel()
+
+    # -- trial result --------------------------------------------------------
+
+    def print_trial(self, line: str, detail: Optional[str] = None) -> None:
+        """Insert *line* (and optional *detail*) above the panel, then redraw."""
+        if self._initialized:
+            sys.stdout.write(f"\033[{self._panel_height()}F")
+        sys.stdout.write(f"\r\033[K{line}\n")
+        if detail:
+            sys.stdout.write(f"\r\033[K{detail}\n")
+        self._draw_panel()
+
+    def finalize(self) -> None:
+        """Mark all slots as complete and do a final redraw."""
+        self._done = set(self._names)
+        self._redraw()
+
+
+def _error_detail(response: Optional[ModelResponse]) -> Optional[str]:
+    """Build a console error-detail line, or None if no useful info available."""
+    indent = "  " + " " * 15 + "  "  # aligns with verdict column
+    if response is None:
+        # Exception was raised inside the adapter call — no response object.
+        return (
+            indent
+            + typer.style("↳ adapter call failed (network / timeout) — details in JSONL log", fg=typer.colors.RED)
+        )
+    if response.is_error:
+        msg = response.metadata.get("error") or response.text or "unknown error"
+        msg = msg[:90]
+        return indent + typer.style(f"↳ adapter error: {msg}", fg=typer.colors.RED)
+    return None
+
+
+def _make_callbacks(
+    total_expected: int,
+    generator_names: list[str],
+) -> Tuple[Callable, Callable, Callable, Callable, Callable]:
+    """Return (on_trial_complete, on_gen_start, on_adp_start, on_jdg_start, finalize)."""
+    _trial_header()
+    panel = _LivePanel(generator_names)
+    panel._draw_panel()  # show initial idle panel right after the header
+
+    conv_counter = 0  # incremented once per conversation (turn == 0 only)
+
+    def on_trial_complete(
         trial_num: int,
         prompt: PromptCandidate,
         response: Optional[ModelResponse],
         verdict: Optional[Verdict],
     ) -> None:
+        nonlocal conv_counter
+        name = prompt.metadata.get("display_name", "")
+        panel.trial_done(name)
+
+        turn = prompt.metadata.get("turn", 0)
+        if turn > 0:
+            return  # follow-up turns update stage counts but don't print a line
+
+        conv_counter += 1
+
         label = _verdict_label(verdict)
         color = _verdict_color(label)
         latency = f"{response.latency_ms:.0f}ms" if response and not response.is_error else "—"
         tokens  = f"{response.tokens}tok"         if response and not response.is_error else ""
-        confidence = f"({verdict.confidence:.0%})" if verdict else ""
+        # verdict.confidence = avg of individual judge confidences (see verdict.py)
+        conf_str = f"({verdict.confidence:.0%})" if verdict else ""
         attack = prompt.metadata.get("display_name") or prompt.metadata.get("attack_type", "")
         attack = attack[:_COL_ATTACK]
 
@@ -336,17 +530,31 @@ def _make_trial_callback(total_expected: int) -> Callable:
             else prompt.text.replace("\n", " ")
         )
 
-        typer.secho(f"  [{trial_num:4d}/{total_expected:4d}] ", nl=False)
-        typer.secho(f"{label:<{_COL_VERDICT}}", fg=color, bold=True, nl=False)
-        typer.echo(
-            f" {confidence:<{_COL_CONF}}"
-            f"  {latency:>{_COL_LATENCY}}"
-            f"  {tokens:<{_COL_TOKENS}}"
-            f"  {attack:<{_COL_ATTACK}}"
-            f"  {preview}"
-        )
+        bracket = f"[{conv_counter:4d}/~{total_expected:3d}] "
 
-    return callback
+        line = (
+            f"  {bracket}"
+            + typer.style(f"{label:<{_COL_VERDICT}}", fg=color, bold=True)
+            + f" {conf_str:<{_COL_CONF}}"
+            + f"  {latency:>{_COL_LATENCY}}"
+            + f"  {tokens:<{_COL_TOKENS}}"
+            + f"  {attack:<{_COL_ATTACK}}"
+            + f"  {preview}"
+        )
+        # For error trials, show a detail line with the stage and message.
+        detail = _error_detail(response) if verdict is None else None
+        panel.print_trial(line, detail=detail)
+
+    def on_generation_start(name: str) -> None:
+        panel.generation_start(name)
+
+    def on_adapter_start(name: str) -> None:
+        panel.adapter_start(name)
+
+    def on_judge_start(name: str) -> None:
+        panel.judge_start(name)
+
+    return on_trial_complete, on_generation_start, on_adapter_start, on_judge_start, panel.finalize
 
 
 def _print_interactive_trial(
@@ -410,14 +618,13 @@ def _print_health_line(label: str, status: str) -> None:
 # ---------------------------------------------------------------------------
 
 def _compute_total_expected(manifest: Manifest) -> int:
-    """Estimate total model calls, accounting for multi-turn conversation depth."""
-    total = 0
-    for gen_cfg in manifest.generators:
-        gen = create_generator(gen_cfg.name)
-        gen.configure(gen_cfg.config)
-        turns = gen.expected_turns_per_prompt()
-        total += len(manifest.adapters) * manifest.num_batches * manifest.batch_size * turns
-    return total
+    """Estimate total conversations (multi-turn counts as one)."""
+    return (
+        len(manifest.adapters)
+        * manifest.num_batches
+        * manifest.batch_size
+        * len(manifest.generators)
+    )
 
 
 def _load_manifest_or_exit(manifest_path: str) -> Manifest:
@@ -451,10 +658,14 @@ def _print_run_plan(manifest: Manifest) -> None:
     typer.echo(
         f"  Prompts    : "
         f"{len(manifest.adapters)} adapters × {manifest.num_batches} batches × "
-        f"{manifest.batch_size} × {len(manifest.generators)} generators ≈ {total_prompts} "
-        f"(incl. multi-turn turns)"
+        f"{manifest.batch_size} × {len(manifest.generators)} generators ≈ {total_prompts} conversations"
     )
-    typer.echo(f"  Concurrency: combos={manifest.max_combo_concurrency}  prompts={manifest.max_concurrency}")
+    num_combos = len(manifest.adapters) * len(manifest.generators)
+    typer.echo(
+        f"  Combos     : {num_combos} adapter×generator pair(s), "
+        f"{min(manifest.max_combo_concurrency, num_combos)} running in parallel"
+    )
+    typer.echo(f"  Concurrency: {manifest.max_concurrency} prompt(s) in parallel per combo")
     typer.echo(f"  Pipeline   : {manifest.pipeline_mode}")
     typer.echo(f"  Output     : {manifest.output}")
     typer.secho("─" * 62, fg=typer.colors.BRIGHT_BLACK)
@@ -473,6 +684,8 @@ def _print_run_summary(summary: ExperimentSummary, manifest: Manifest) -> None:
     typer.echo(f"  Errors           : {summary.total_errors}")
     asr_color = typer.colors.RED if summary.asr > 0.3 else typer.colors.YELLOW if summary.asr > 0 else typer.colors.GREEN
     typer.secho(f"  Attack Success   : {summary.asr:.2%}", fg=asr_color, bold=True)
+    typer.echo(f"  Total tokens     : {summary.total_tokens:,}")
+    typer.echo(f"  Avg latency      : {summary.avg_latency_ms:.0f} ms")
     typer.echo(f"  Elapsed          : {summary.elapsed_seconds:.2f}s")
     typer.echo(f"  Log              : {manifest.output}")
     typer.secho("═" * 62, fg=typer.colors.BRIGHT_BLACK)

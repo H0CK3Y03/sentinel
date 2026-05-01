@@ -97,6 +97,7 @@ class Manifest:
     force_adapter_isolation: bool = False
     force_judge_isolation: bool = False
     max_turns_per_conversation: int = 10
+    stop_on_compliance: bool = True
     rate_limit_rps: float = 0.0  # 0 = unlimited
     output: str = "logs/experiment.jsonl"
 
@@ -157,6 +158,7 @@ class Manifest:
             "force_adapter_isolation": self.force_adapter_isolation,
             "force_judge_isolation": self.force_judge_isolation,
             "max_turns_per_conversation": self.max_turns_per_conversation,
+            "stop_on_compliance": self.stop_on_compliance,
             "rate_limit_rps": self.rate_limit_rps,
             "output": self.output,
         }
@@ -254,6 +256,7 @@ def _parse_raw(data: Dict[str, Any]) -> Manifest:
         force_adapter_isolation=bool(data.get("force_adapter_isolation", False)),
         force_judge_isolation=bool(data.get("force_judge_isolation", False)),
         max_turns_per_conversation=max(1, int(data.get("max_turns_per_conversation", 10))),
+        stop_on_compliance=bool(data.get("stop_on_compliance", True)),
         rate_limit_rps=float(data.get("rate_limit_rps", 0)),
         output=data.get("output", "logs/experiment.jsonl"),
         raw=data,

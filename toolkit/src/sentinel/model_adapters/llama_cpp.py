@@ -325,8 +325,10 @@ class LlamaCppModelAdapter(ModelAdapter):
         text = str(message_obj.get("content", "")).strip()
 
         usage = chat_result.get("usage", {})
-        completion_tokens = usage.get("completion_tokens")
-        tokens = completion_tokens if isinstance(completion_tokens, int) else len(text.split())
+        tokens = next(
+            (usage.get(k) for k in ("total_tokens", "completion_tokens") if isinstance(usage.get(k), int)),
+            len(text.split()),
+        )
 
         # White-box analytics
         logprobs: List[Dict[str, Any]] = []

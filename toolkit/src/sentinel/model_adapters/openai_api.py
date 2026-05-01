@@ -153,10 +153,9 @@ class OpenAIApiAdapter(ModelAdapter):
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
         usage = data.get("usage", {})
-        tokens = (
-            usage.get("completion_tokens")
-            if isinstance(usage.get("completion_tokens"), int)
-            else len(text.split())
+        tokens = next(
+            (usage.get(k) for k in ("total_tokens", "completion_tokens") if isinstance(usage.get(k), int)),
+            len(text.split()),
         )
 
         return ModelResponse(

@@ -103,7 +103,6 @@ class Verdict:
     prompt_id: str = ""
     model_id: str = ""
     judge_instance_id: str = ""
-    trace_id: str = ""
     labels: List[str] = field(default_factory=list)
     confidence: float = 0.0
     judge_type: str = JudgeType.HEURISTIC.value

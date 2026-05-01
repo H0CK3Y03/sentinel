@@ -199,9 +199,43 @@ pipeline_mode: "batch"
 # "streaming" = prefetch the next batch while processing the current batch.
 # Streaming is automatically disabled for stateful generators (e.g., multi-turn).
 
-rate_limit_rps: 0
+force_generator_isolation: false
+# [OPTIONAL] Give each adapter×generator combo its own generator instance.
+# Default: false
+# When true, generators never share state across combos even if the same generator
+# appears in multiple combos. Required when running combos concurrently with
+# stateful generators (max_combo_concurrency > 1 with multiple adapters
+# automatically enables isolation for generators).
+
+force_adapter_isolation: false
+# [OPTIONAL] Give each adapter×generator combo its own adapter instance.
+# Default: false
+# When true, each combo gets a fresh adapter instead of sharing the same instance.
+# Useful when adapter state must not leak between combos.
+
+force_judge_isolation: false
+# [OPTIONAL] Give each adapter×generator combo its own set of judge instances.
+# Default: false
+# When true, each combo gets independent judge instances.
+# Useful when judges hold per-session state (e.g., LLM-based judges with history).
+
+max_turns_per_conversation: 10
+# [OPTIONAL] Hard ceiling on follow-up turns in a multi-turn conversation.
+# Default: 10
+# Only relevant for generators that support multi-turn (e.g., openai-api-attacker).
+# The conversation ends earlier if the generator returns None or if
+# stop_on_compliance triggers.
+
+stop_on_compliance: true
+# [OPTIONAL] Halt a multi-turn conversation as soon as a compliance verdict is reached.
+# Default: true
+# When true, the conversation stops the moment the target model complies, logging
+# a conversation_complete event with stop_reason="compliance".
+# Set to false to run all turns regardless of compliance verdicts.
+
+rate_limit_rps: 0.0
 # [OPTIONAL] Rate limit: max requests per second to external services.
-# Default: 0 (no limit)
+# Default: 0.0 (no limit)
 # Set to >0 to throttle API calls (e.g., 10.0 = max 10 req/sec).
 # Useful to avoid API rate limits or control billing.
 

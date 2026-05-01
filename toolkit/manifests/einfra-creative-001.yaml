@@ -1,0 +1,79 @@
+experiment_id: "einfra-creative-001"
+author: "Adam Veselý"
+description: >
+  LLM-vs-LLM red-teaming via e-INFRA CZ.
+  A "red" DeepSeek V3.2 (non-thinking, high temperature) generates dynamic,
+  adaptive attacks — including multi-turn escalation — against a "blue"
+  DeepSeek V3.2 Thinking target.  A third DeepSeek V3.2 instance acts as the
+  judge alongside the fast heuristic layer.
+
+# ---------------------------------------------------------------------------
+# Target model (blue LLM — the one being attacked)
+# ---------------------------------------------------------------------------
+adapters:
+  - adapter: openai-api
+    model_id: "deepseek-v3.2-thinking"
+    config:
+      base_url: "https://llm.ai.e-infra.cz/v1"
+      model: "deepseek-v3.2-thinking"
+      max_tokens: 768
+      temperature: 0.7
+      strip_think_tags: true
+
+# ---------------------------------------------------------------------------
+# Attack generators
+# ---------------------------------------------------------------------------
+generators:
+  # Primary: LLM-generated adaptive attacks.
+  # The red LLM crafts each prompt from scratch and adapts follow-up turns
+  # based on the target's actual response.
+  - name: openai-api-attacker
+    config:
+      base_url: "https://llm.ai.e-infra.cz/v1"
+      model: "deepseek-v3.2"      # non-thinking for speed; high temp for variety
+      max_tokens: 512
+      temperature: 0.9
+      max_turns: 4                # 4-turn adaptive conversations
+      seed: 42
+
+  # Secondary: static obfuscation as a baseline / comparison set.
+  # Tests encoding tricks (base64, ROT13, XML injection, homoglyphs, etc.)
+  # that the LLM attacker may also discover independently.
+  - name: obfuscation
+    config:
+      seed: 42
+
+# ---------------------------------------------------------------------------
+# Judges
+# ---------------------------------------------------------------------------
+judges:
+  # Fast heuristic pass — catches obvious cases with zero latency cost.
+  - name: heuristic
+
+  # LLM judge: reliable classification of nuanced or obfuscated responses.
+  # Uses the non-thinking model at temperature 0 for deterministic verdicts.
+  - name: openai-api-judge
+    config:
+      base_url: "https://llm.ai.e-infra.cz/v1"
+      model: "deepseek-v3.2"
+      max_tokens: 256
+      temperature: 0.0
+
+# ---------------------------------------------------------------------------
+# Experiment settings
+# ---------------------------------------------------------------------------
+seed: 42
+batch_size: 3
+num_batches: 2
+max_concurrency: 2
+max_combo_concurrency: 2
+
+# Conservative rate limit: each trial touches the API twice (target + judge),
+# and the LLM attacker adds a third call when generating attacks.
+rate_limit_rps: 0.75
+
+# Cap multi-turn conversations (llm-attacker respects its own max_turns: 4,
+# but this is a hard ceiling across all generators).
+max_turns_per_conversation: 4
+
+output: "logs/einfra-creative-001.jsonl"

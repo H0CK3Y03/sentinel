@@ -34,6 +34,7 @@ class AttackGenerator(ABC):
         self.name = name
         self.instance_id = instance_id
         self._configured = False
+        self.tokens_used: int = 0
 
     def get_display_name(self) -> str:
         """Return the display name, falling back to ``self.name``."""

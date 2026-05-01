@@ -39,6 +39,7 @@ class JudgeAdapter(ABC):
         self.judge_type = judge_type
         self.instance_id = instance_id
         self._configured = False
+        self.tokens_used: int = 0
 
     # -- required interface ---------------------------------------------------
 

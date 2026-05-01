@@ -48,7 +48,23 @@ class ExperimentSummary:
     total_compliances: int = 0
     total_inconclusive: int = 0
     total_errors: int = 0
+    total_tokens: int = 0
     elapsed_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        # Private running totals for latency average — not dataclass fields.
+        self._latency_sum: float = 0.0
+        self._latency_count: int = 0
+
+    def record_response(self, response: "ModelResponse") -> None:
+        """Update token and latency accumulators from a successful response."""
+        self.total_tokens += response.tokens
+        self._latency_sum += response.latency_ms
+        self._latency_count += 1
+
+    @property
+    def avg_latency_ms(self) -> float:
+        return round(self._latency_sum / self._latency_count, 1) if self._latency_count else 0.0
 
     @property
     def asr(self) -> float:
@@ -66,6 +82,8 @@ class ExperimentSummary:
             "total_compliances": self.total_compliances,
             "total_inconclusive": self.total_inconclusive,
             "total_errors": self.total_errors,
+            "total_tokens": self.total_tokens,
+            "avg_latency_ms": self.avg_latency_ms,
             "attack_success_rate": round(self.asr, 4),
             "elapsed_seconds": round(self.elapsed_seconds, 2),
         }
@@ -129,9 +147,15 @@ class Orchestrator:
         on_trial_complete: Optional[
             Callable[[int, PromptCandidate, Optional[ModelResponse], Optional[Verdict]], None]
         ] = None,
+        on_generation_start: Optional[Callable[[str], None]] = None,
+        on_adapter_start: Optional[Callable[[str], None]] = None,
+        on_judge_start: Optional[Callable[[str], None]] = None,
     ) -> None:
         self.manifest = manifest
         self.on_trial_complete = on_trial_complete
+        self.on_generation_start = on_generation_start
+        self.on_adapter_start = on_adapter_start
+        self.on_judge_start = on_judge_start
 
         # Shared component instances created from the manifest. `_build_combos`
         # may reuse them or create per-combo copies, depending on the manifest's
@@ -176,10 +200,19 @@ class Orchestrator:
     ) -> _TrialOutcome:
         await rate_limiter.acquire()
 
+        display_name = prompt.metadata.get("display_name", "")
+        if self.on_adapter_start:
+            self.on_adapter_start(display_name)
+
         try:
             response = await adapter.generate(prompt.text)
             response.prompt_id = prompt.prompt_id
             response.adapter_instance_id = getattr(adapter, "instance_id", "")
+
+            # Signal that the adapter phase is done and judging is starting.
+            # Fires even when judges=[] so the panel can transition resp→judge→done.
+            if self.on_judge_start:
+                self.on_judge_start(display_name)
 
             verdicts: List[Verdict] = []
             if judges:
@@ -453,7 +486,12 @@ class Orchestrator:
         combo: _Combo,
         m: Manifest,
         summary: ExperimentSummary,
-    ) -> None:
+    ) -> str:
+        """Process one trial outcome and return the final verdict label.
+
+        Returns ``"error"`` for failed outcomes so callers (e.g. the multi-turn
+        loop) can make stop/continue decisions without re-examining the outcome.
+        """
         summary.total_prompts += 1
         if (
             outcome.error is not None
@@ -463,7 +501,7 @@ class Orchestrator:
             self._record_error_outcome(outcome, m, summary)
             if self.on_trial_complete:
                 self.on_trial_complete(summary.total_prompts, outcome.prompt, outcome.response, None)
-            return
+            return "error"
 
         final_verdict = aggregate_final_verdict(
             experiment_id=m.experiment_id,
@@ -472,11 +510,13 @@ class Orchestrator:
             verdicts=outcome.verdicts,
         )
         self._tally_verdict(final_verdict, summary)
+        summary.record_response(outcome.response)
         self._record_successful_trial(outcome, combo, m, final_verdict)
         if self.on_trial_complete:
             self.on_trial_complete(
                 summary.total_prompts, outcome.prompt, outcome.response, final_verdict
             )
+        return final_verdict.labels[0] if final_verdict.labels else "inconclusive"
 
     @staticmethod
     def _tally_verdict(final_verdict: Verdict, summary: ExperimentSummary) -> None:
@@ -496,7 +536,11 @@ class Orchestrator:
         summary.total_errors += 1
         details: Dict[str, Any] = {"prompt_id": outcome.prompt.prompt_id}
         if outcome.response is not None:
-            details["error"] = outcome.response.metadata.get("error", outcome.response.text)
+            details["error"] = (
+                outcome.response.metadata.get("error")
+                or outcome.response.text
+                or "unknown error"
+            )
         self.logger.log_error(
             m.experiment_id,
             message=str(outcome.error) if outcome.error else "Adapter returned an error response",
@@ -560,6 +604,7 @@ class Orchestrator:
         m: Manifest,
         summary: ExperimentSummary,
         rate_limiter: RateLimiter,
+        initial_verdict: str = "",
     ) -> None:
         """Drive multi-turn conversations to completion in-line.
 
@@ -567,19 +612,38 @@ class Orchestrator:
         ``conversation_id``, fetch and execute follow-up turns immediately
         rather than waiting for the next outer batch. The turn count is bounded
         by ``max_turns_per_conversation`` to guard against malformed flows.
+
+        A conversation-complete event is logged on every exit path with a
+        ``stop_reason`` field:  ``"natural_end"`` (generator returned None),
+        ``"compliance"`` (stop_on_compliance triggered), or ``"max_turns"``
+        (the hard ceiling was reached).
         """
         metadata = outcome.prompt.metadata or {}
         conversation_id = metadata.get("conversation_id")
         if not conversation_id or not hasattr(combo.generator, "get_next_turn"):
             return
 
-        for turn_count in range(m.max_turns_per_conversation):
+        # Count includes the initial prompt that was already executed.
+        turns_executed = metadata.get("turn", 0) + 1
+
+        # If the very first turn already produced compliance, stop immediately.
+        if m.stop_on_compliance and initial_verdict == "compliance":
+            self._log_conversation_complete(
+                m.experiment_id, conversation_id,
+                total_turns=turns_executed,
+                stop_reason="compliance",
+            )
+            return
+
+        for _ in range(m.max_turns_per_conversation):
+            if self.on_generation_start:
+                self.on_generation_start(combo.generator.get_display_name())
             next_turn_prompt = combo.generator.get_next_turn(conversation_id)
             if next_turn_prompt is None:
                 self._log_conversation_complete(
-                    m.experiment_id,
-                    conversation_id,
-                    total_turns=metadata.get("turn", 0) + turn_count + 1,
+                    m.experiment_id, conversation_id,
+                    total_turns=turns_executed,
+                    stop_reason="natural_end",
                 )
                 return
 
@@ -590,10 +654,30 @@ class Orchestrator:
                 rate_limiter,
                 judges=combo.judges,
             )
-            self._process_outcome(next_outcome, combo, m, summary)
+            verdict_label = self._process_outcome(next_outcome, combo, m, summary)
+            turns_executed += 1
+
+            if m.stop_on_compliance and verdict_label == "compliance":
+                self._log_conversation_complete(
+                    m.experiment_id, conversation_id,
+                    total_turns=turns_executed,
+                    stop_reason="compliance",
+                )
+                return
+
+        # Hard ceiling reached without a natural end or compliance stop.
+        self._log_conversation_complete(
+            m.experiment_id, conversation_id,
+            total_turns=turns_executed,
+            stop_reason="max_turns",
+        )
 
     def _log_conversation_complete(
-        self, experiment_id: str, conversation_id: str, total_turns: int
+        self,
+        experiment_id: str,
+        conversation_id: str,
+        total_turns: int,
+        stop_reason: str = "natural_end",
     ) -> None:
         self.logger.log_event(
             LogEvent(
@@ -604,6 +688,7 @@ class Orchestrator:
                     "message": "Multi-turn conversation completed",
                     "conversation_id": conversation_id,
                     "total_turns": total_turns,
+                    "stop_reason": stop_reason,
                 },
             )
         )
@@ -636,10 +721,10 @@ class Orchestrator:
             *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
         )
         for outcome in outcomes:
-            self._process_outcome(outcome, combo, m, summary)
+            initial_verdict = self._process_outcome(outcome, combo, m, summary)
             if advance_multiturn:
                 await self._advance_multiturn_if_needed(
-                    outcome, combo, m, summary, rate_limiter
+                    outcome, combo, m, summary, rate_limiter, initial_verdict
                 )
 
     async def _run_combo_batch(
@@ -651,6 +736,8 @@ class Orchestrator:
         rate_limiter: RateLimiter,
     ) -> None:
         for _ in range(m.num_batches):
+            if self.on_generation_start:
+                self.on_generation_start(combo.generator.get_display_name())
             prompts = await asyncio.to_thread(combo.generator.next, m.batch_size)
             await self._run_prompts(
                 prompts, combo, m, summary, semaphore, rate_limiter, advance_multiturn=True
@@ -776,6 +863,14 @@ class Orchestrator:
         self, components: _ComponentSet, summary: ExperimentSummary
     ) -> None:
         """Write final metrics, close the log, and clean up components."""
+        # Add tokens consumed by generators (red LLM) and judges (LLM judges).
+        summary.total_tokens += sum(
+            getattr(g, "tokens_used", 0) for g in components.generators
+        )
+        summary.total_tokens += sum(
+            getattr(j, "tokens_used", 0) for j in components.judges
+        )
+
         m = self.manifest
         aggregate_metrics = self.metrics_collector.compute_aggregate(
             elapsed_seconds=summary.elapsed_seconds
