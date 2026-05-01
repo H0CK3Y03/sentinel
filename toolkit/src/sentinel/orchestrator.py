@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from sentinel.concurrency import RateLimiter
 from sentinel.generators.base import AttackGenerator
@@ -123,8 +123,15 @@ class Orchestrator:
     >>> summary = asyncio.run(orch.run())
     """
 
-    def __init__(self, manifest: Manifest) -> None:
+    def __init__(
+        self,
+        manifest: Manifest,
+        on_trial_complete: Optional[
+            Callable[[int, PromptCandidate, Optional[ModelResponse], Optional[Verdict]], None]
+        ] = None,
+    ) -> None:
         self.manifest = manifest
+        self.on_trial_complete = on_trial_complete
 
         # Shared component instances created from the manifest. `_build_combos`
         # may reuse them or create per-combo copies, depending on the manifest's
@@ -450,6 +457,8 @@ class Orchestrator:
         summary.total_prompts += 1
         if outcome.error is not None or outcome.response is None:
             self._record_error_outcome(outcome, m, summary)
+            if self.on_trial_complete:
+                self.on_trial_complete(summary.total_prompts, outcome.prompt, None, None)
             return
 
         final_verdict = aggregate_final_verdict(
@@ -460,6 +469,10 @@ class Orchestrator:
         )
         self._tally_verdict(final_verdict, summary)
         self._record_successful_trial(outcome, combo, m, final_verdict)
+        if self.on_trial_complete:
+            self.on_trial_complete(
+                summary.total_prompts, outcome.prompt, outcome.response, final_verdict
+            )
 
     @staticmethod
     def _tally_verdict(final_verdict: Verdict, summary: ExperimentSummary) -> None:

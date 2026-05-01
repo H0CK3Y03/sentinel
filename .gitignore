@@ -16,6 +16,9 @@ latexmk_console.txt
 latexmk_out.txt
 deleted/
 
+# Secrets — never commit real tokens
+.env
+
 # Python / toolkit
 __pycache__/
 *.egg-info/

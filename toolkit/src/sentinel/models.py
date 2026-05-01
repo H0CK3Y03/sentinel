@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +83,12 @@ class ModelResponse:
     timestamp: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    # White-box fields — populated when inference_mode is white_box.
+    logprobs: List[Dict[str, Any]] = field(default_factory=list)
+    perplexity: Optional[float] = None
+    token_entropies: List[float] = field(default_factory=list)
+    mean_entropy: Optional[float] = None
+    top1_probs: List[float] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

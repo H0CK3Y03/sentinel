@@ -39,6 +39,8 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     LlamaCppModelAdapter = None  # type: ignore[assignment]
 
+from sentinel.model_adapters.openai_api import OpenAIApiAdapter
+
 try:
     from sentinel.generators.llama_cpp import LlamaCppAttackGenerator
 except ImportError:  # pragma: no cover - optional dependency
@@ -104,7 +106,10 @@ _ADAPTERS: _Registry[ModelAdapter] = _Registry(
     label="adapter",
     base_class=ModelAdapter,
     entry_point_group="sentinel.model_adapters",
-    builtin={"stub": StubAdapter},
+    builtin={
+        "stub": StubAdapter,
+        "openai-api": OpenAIApiAdapter,
+    },
 )
 if LlamaCppModelAdapter is not None:
     _ADAPTERS.register("llama-cpp", LlamaCppModelAdapter)

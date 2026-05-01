@@ -1,0 +1,27 @@
+experiment_id: "einfra-001"
+author: "Adam Veselý"
+description: "Red-teaming via e-INFRA CZ OpenAI-compatible API (DeepSeek R1)"
+
+adapters:
+  - adapter: openai-api
+    model_id: "deepseek-r1-distill-qwen-32b"
+    config:
+      base_url: "https://llm.ai.e-infra.cz/v1"
+      model: "deepseek-r1-distill-qwen-32b"
+      max_tokens: 512
+      temperature: 0.7
+
+generators:
+  - name: single-turn-jailbreak
+  - name: prompt-injection
+  - name: multi-turn-conversation
+
+judges:
+  - name: heuristic
+
+seed: 42
+batch_size: 5
+num_batches: 3
+max_concurrency: 2
+rate_limit_rps: 2.0
+output: "logs/einfra-001.jsonl"

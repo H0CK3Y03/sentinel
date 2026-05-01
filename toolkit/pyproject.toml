@@ -16,6 +16,7 @@ authors = [
 dependencies = [
     "typer>=0.9",
     "pyyaml>=6.0",
+    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,7 @@ sentinel = "sentinel.cli:main"
 
 [project.entry-points."sentinel.model_adapters"]
 stub = "sentinel.model_adapters.stub:StubAdapter"
+openai-api = "sentinel.model_adapters.openai_api:OpenAIApiAdapter"
 
 [project.entry-points."sentinel.generators"]
 stub-template = "sentinel.generators.stub:StubAttackGenerator"

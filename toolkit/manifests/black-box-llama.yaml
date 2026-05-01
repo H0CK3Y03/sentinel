@@ -1,0 +1,33 @@
+experiment_id: "black-box-001"
+author: "Adam Veselý"
+description: |
+  Black-box red-teaming of a local LLaMA GGUF model.
+  The attacker only observes prompt text and response text — model internals
+  (weights, logprobs, activations) are hidden, mirroring a remote API setting.
+  Suitable for template-based and prompt-injection attacks.
+
+adapters:
+  - adapter: llama-cpp
+    model_id: "llama3-8b-q4"
+    config:
+      model_path: "models/llama-3-8b-instruct.Q4_K_M.gguf"
+      inference_mode: black_box
+      system_prompt: "You are a helpful assistant."
+      max_tokens: 256
+      temperature: 0.7
+      n_ctx: 4096
+      n_gpu_layers: 0          # set >0 to offload layers to GPU
+
+generators:
+  - name: single-turn-jailbreak
+  - name: prompt-injection
+  - name: multi-turn-conversation
+
+judges:
+  - name: heuristic
+
+seed: 42
+batch_size: 5
+num_batches: 4
+max_concurrency: 2
+output: "logs/black-box-001.jsonl"
