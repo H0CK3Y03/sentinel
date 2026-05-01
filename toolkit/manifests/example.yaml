@@ -138,7 +138,21 @@ judges:
     # [REQUIRED] Judge identifier: heuristic | llm | classifier | ...
     # "heuristic" = rule-based detection (fast, lightweight)
     # "llm" = LLM-based judging (accurate but slower)
-    
+
+    weight: 1.0
+    # [OPTIONAL] Relative voting weight for this judge in the ensemble.
+    # Default: 1.0 (equal weight for all judges)
+    # Weights are relative, not absolute — what matters is the ratio between judges.
+    # Each judge's share of influence = its weight / sum of all judge weights.
+    #
+    # Examples with two judges:
+    #   heuristic weight 1.0, llm-judge weight 1.0  → 50% / 50%  (equal)
+    #   heuristic weight 1.0, llm-judge weight 2.0  → 33% / 67%  (llm-judge 2× stronger)
+    #   heuristic weight 1.0, llm-judge weight 9.0  → 10% / 90%  (llm-judge dominates)
+    #
+    # Applies to both the majority vote (which label wins) and the reported
+    # confidence (weighted average of individual judge confidences).
+
     config:
       # [OPTIONAL] Judge-specific configuration.
       

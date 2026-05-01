@@ -65,12 +65,14 @@ class ManifestJudge:
     """Single judge entry in the judge pipeline."""
     instance_id: str = field(default_factory=lambda: _new_instance_id("judge"))
     name: str = "heuristic"
+    weight: float = 1.0
     config: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "instance_id": self.instance_id,
             "name": self.name,
+            "weight": self.weight,
             "config": self.config,
         }
 
@@ -229,6 +231,7 @@ def _build_judge(item: Dict[str, Any]) -> ManifestJudge:
     return ManifestJudge(
         instance_id=item.get("instance_id") or _new_instance_id("judge"),
         name=item.get("name", "heuristic"),
+        weight=float(item.get("weight", 1.0)),
         config=item.get("config", {}),
     )
 

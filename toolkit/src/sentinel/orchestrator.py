@@ -178,13 +178,6 @@ class Orchestrator:
             for judge in manifest.judges
         ]
 
-        # One asyncio.Lock per *unique* judge instance, keyed by id(). Judges
-        # that wrap a single underlying model are not safe to call concurrently;
-        # the lock makes evaluation serial per instance while still allowing
-        # different judge instances to run in parallel.
-        self._judge_locks: Dict[int, asyncio.Lock] = {
-            id(j): asyncio.Lock() for j in self.judges
-        }
         self.logger = JsonlLogger(manifest.output)
         self.metrics_collector = MetricsCollector()
 
@@ -234,11 +227,10 @@ class Orchestrator:
         prompt: PromptCandidate,
         experiment_id: str,
     ) -> Verdict:
-        lock = self._judge_locks.setdefault(id(judge), asyncio.Lock())
-        async with lock:
-            verdict = await asyncio.to_thread(judge.evaluate, response, prompt)
+        verdict = await asyncio.to_thread(judge.evaluate, response, prompt)
         verdict.experiment_id = experiment_id
         verdict.judge_instance_id = getattr(judge, "instance_id", "")
+        verdict.judge_weight = getattr(judge, "weight", 1.0)
         return verdict
 
     # -- combo construction --------------------------------------------------
@@ -377,6 +369,7 @@ class Orchestrator:
                 continue
             try:
                 judge.configure(cfg.config)
+                judge.weight = float(cfg.weight)
             except Exception as exc:
                 config_errors[f"judge:{cfg.instance_id}"] = str(exc)
 
@@ -840,11 +833,6 @@ class Orchestrator:
 
         combos = self._build_combos(m)
         components = self._collect_components(combos)
-
-        # Make sure every judge instance — including any per-combo ones added
-        # by isolation — has a serialisation lock available.
-        for judge in components.judges:
-            self._judge_locks.setdefault(id(judge), asyncio.Lock())
 
         # Phase 1 + 2: configure and health-check.
         self._configure_components(components)

@@ -105,6 +105,7 @@ class Verdict:
     judge_instance_id: str = ""
     labels: List[str] = field(default_factory=list)
     confidence: float = 0.0
+    judge_weight: float = 1.0
     judge_type: str = JudgeType.HEURISTIC.value
     explanation: str = ""
     timestamp: str = field(

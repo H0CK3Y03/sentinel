@@ -308,7 +308,7 @@ def _verdict_color(label: str) -> str:
 # Column widths — keep in sync with the format strings in _make_trial_callback.
 # The progress bracket "  [XXXX/XXXX] " is 14 chars and is not a configurable width.
 _COL_VERDICT = 13   # "COMPLIANCE   "
-_COL_CONF    =  6   # "(75%)  "  — shows inter-judge agreement, not per-judge confidence
+_COL_CONF    =  6   # "(75%)  "  — weighted average of individual judge confidences
 _COL_LATENCY =  8   # "2500ms" right-aligned
 _COL_TOKENS  =  7   # "123tok " left-padded
 _COL_ATTACK  = 10   # "jailbreak " left-padded
@@ -318,9 +318,9 @@ def _trial_header() -> None:
     """Print the column-name row and a separator line."""
     # "  [XXXX/~XXX] " is exactly 15 chars; mirror it with "  [ progress] ".
     typer.secho(
-        f"  [{'progress':>9}] "        # 14 chars — matches "  [   1/~  90] "
+        f"  [{'progress':>9}] "        # 15 chars — matches "  [   1/  90] "
         f"{'verdict':<{_COL_VERDICT}}"  # 13 chars
-        f" {'agr':<{_COL_CONF}}"        #  7 chars — agreement across judges
+        f" {'conf':<{_COL_CONF}}"        #  7 chars — weighted avg confidence
         f"  {'latency':>{_COL_LATENCY}}"
         f"  {'tokens':<{_COL_TOKENS}}"
         f"  {'attack':<{_COL_ATTACK}}"
@@ -530,7 +530,7 @@ def _make_callbacks(
             else prompt.text.replace("\n", " ")
         )
 
-        bracket = f"[{conv_counter:4d}/~{total_expected:3d}] "
+        bracket = f"[{conv_counter:4d}/{total_expected:4d}] "
 
         line = (
             f"  {bracket}"
