@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
+import uuid
+
 from sentinel.models import EventType, LogEvent, ModelResponse, PromptCandidate, Verdict
 
 
@@ -78,6 +80,7 @@ class JsonlLogger:
     ) -> None:
         """Log a complete trial: prompt -> response -> verdicts."""
         data: Dict[str, Any] = {
+            "trial_id": str(uuid.uuid4()),
             "prompt": prompt.to_dict(),
             "response": response.to_dict(),
             "verdicts": [v.to_dict() for v in verdicts],

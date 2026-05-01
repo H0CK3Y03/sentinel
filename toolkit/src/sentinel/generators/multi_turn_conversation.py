@@ -110,6 +110,8 @@ class MultiTurnConversationGenerator(AttackGenerator):
         Random seed for reproducibility (default 42).
     """
 
+    display_name = "multi-turn"
+
     def __init__(self, name: str = "multi-turn-conversation") -> None:
         super().__init__(name=name)
         self._flows = [dict(f) for f in _CONVERSATION_FLOWS]
@@ -170,6 +172,7 @@ class MultiTurnConversationGenerator(AttackGenerator):
                     text=first_prompt,
                     metadata={
                         "generator": self.name,
+                        "display_name": self.get_display_name(),
                         "attack_type": "multi-turn-conversation",
                         "conversation_id": conversation_id,
                         "flow_name": flow["name"],
@@ -194,6 +197,10 @@ class MultiTurnConversationGenerator(AttackGenerator):
         state = self._conversation_state[conversation_id]
         state["responses"].append(response.text)
         state["current_turn"] += 1
+
+    def expected_turns_per_prompt(self) -> int:
+        avg = sum(len(f["steps"]) for f in self._flows) / len(self._flows) if self._flows else 1
+        return max(1, round(avg))
 
     def supports_streaming(self) -> bool:
         """Multi-turn flows require response feedback before the next turn."""
@@ -223,6 +230,7 @@ class MultiTurnConversationGenerator(AttackGenerator):
             text=next_prompt,
             metadata={
                 "generator": self.name,
+                "display_name": self.get_display_name(),
                 "attack_type": "multi-turn-conversation",
                 "conversation_id": conversation_id,
                 "flow_name": flow["name"],

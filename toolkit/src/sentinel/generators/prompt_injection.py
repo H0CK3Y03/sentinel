@@ -73,6 +73,8 @@ class PromptInjectionGenerator(AttackGenerator):
         Random seed for reproducibility (default 42).
     """
 
+    display_name = "injection"
+
     def __init__(self, name: str = "prompt-injection") -> None:
         super().__init__(name=name)
         self._templates = list(_INJECTION_TEMPLATES)
@@ -111,6 +113,7 @@ class PromptInjectionGenerator(AttackGenerator):
                     text=text,
                     metadata={
                         "generator": self.name,
+                        "display_name": self.get_display_name(),
                         "attack_type": "prompt-injection",
                         "template": template,
                         "malicious_instruction": instruction,

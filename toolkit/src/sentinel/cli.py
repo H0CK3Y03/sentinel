@@ -18,7 +18,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional
 
 import typer
 
@@ -27,7 +27,7 @@ from sentinel.analysis import ExperimentAnalyzer, print_report
 from sentinel.manifest import Manifest, load_manifest
 from sentinel.models import ModelResponse, PromptCandidate, Verdict
 from sentinel.orchestrator import ExperimentSummary, Orchestrator
-from sentinel.plugins import create_adapter, create_judge, list_adapters, list_generators, list_judges
+from sentinel.plugins import create_adapter, create_generator, create_judge, list_adapters, list_generators, list_judges
 
 app = typer.Typer(
     name="sentinel",
@@ -55,12 +55,7 @@ def run(
 
     _print_run_plan(manifest)
 
-    total_expected = (
-        len(manifest.adapters)
-        * len(manifest.generators)
-        * manifest.num_batches
-        * manifest.batch_size
-    )
+    total_expected = _compute_total_expected(manifest)
 
     callback: Optional[Callable] = None if quiet else _make_trial_callback(total_expected)
     summary = asyncio.run(Orchestrator(manifest, on_trial_complete=callback).run())
@@ -291,8 +286,34 @@ def _verdict_color(label: str) -> str:
     }.get(label, typer.colors.WHITE)
 
 
+# Column widths — keep in sync with the format strings in _make_trial_callback.
+# The progress bracket "  [XXXX/XXXX] " is 14 chars and is not a configurable width.
+_COL_VERDICT = 13   # "COMPLIANCE   "
+_COL_CONF    =  6   # "(75%)  "
+_COL_LATENCY =  8   # "2500ms" right-aligned
+_COL_TOKENS  =  7   # "123tok " left-padded
+_COL_ATTACK  = 10   # "jailbreak " left-padded
+
+
+def _trial_header() -> None:
+    """Print the column-name row and a separator line."""
+    # "  [XXXX/XXXX] " is exactly 14 chars; mirror it with "  [ progress] ".
+    typer.secho(
+        f"  [{'progress':>9}] "        # 14 chars — matches "  [   1/  90] "
+        f"{'verdict':<{_COL_VERDICT}}"  # 13 chars
+        f" {'conf':<{_COL_CONF}}"       #  7 chars (leading space + 6)
+        f"  {'latency':>{_COL_LATENCY}}"  # 10 chars
+        f"  {'tokens':<{_COL_TOKENS}}"    #  9 chars
+        f"  {'attack':<{_COL_ATTACK}}"    # 12 chars
+        f"  prompt",
+        fg=typer.colors.BRIGHT_BLACK,
+    )
+    typer.secho("  " + "─" * 90, fg=typer.colors.BRIGHT_BLACK)
+
+
 def _make_trial_callback(total_expected: int) -> Callable:
     """Return a callback that prints one line per completed trial."""
+    _trial_header()
 
     def callback(
         trial_num: int,
@@ -302,14 +323,28 @@ def _make_trial_callback(total_expected: int) -> Callable:
     ) -> None:
         label = _verdict_label(verdict)
         color = _verdict_color(label)
-        latency = f"{response.latency_ms:.0f}ms" if response else "  —  "
-        tokens = f"{response.tokens}tok" if response else ""
-        confidence = f"({verdict.confidence:.0%})" if verdict else "      "
-        preview = (prompt.text[:52].replace("\n", " ") + "…") if len(prompt.text) > 52 else prompt.text
+        latency = f"{response.latency_ms:.0f}ms" if response and not response.is_error else "—"
+        tokens  = f"{response.tokens}tok"         if response and not response.is_error else ""
+        confidence = f"({verdict.confidence:.0%})" if verdict else ""
+        attack = prompt.metadata.get("display_name") or prompt.metadata.get("attack_type", "")
+        attack = attack[:_COL_ATTACK]
+
+        preview_len = 52
+        preview = (
+            (prompt.text[:preview_len].replace("\n", " ") + "…")
+            if len(prompt.text) > preview_len
+            else prompt.text.replace("\n", " ")
+        )
 
         typer.secho(f"  [{trial_num:4d}/{total_expected:4d}] ", nl=False)
-        typer.secho(f"{label:<13}", fg=color, bold=True, nl=False)
-        typer.echo(f" {confidence:<6}  {latency:>8}  {tokens:<7}  {preview}")
+        typer.secho(f"{label:<{_COL_VERDICT}}", fg=color, bold=True, nl=False)
+        typer.echo(
+            f" {confidence:<{_COL_CONF}}"
+            f"  {latency:>{_COL_LATENCY}}"
+            f"  {tokens:<{_COL_TOKENS}}"
+            f"  {attack:<{_COL_ATTACK}}"
+            f"  {preview}"
+        )
 
     return callback
 
@@ -374,6 +409,17 @@ def _print_health_line(label: str, status: str) -> None:
 # Helpers used by the commands above
 # ---------------------------------------------------------------------------
 
+def _compute_total_expected(manifest: Manifest) -> int:
+    """Estimate total model calls, accounting for multi-turn conversation depth."""
+    total = 0
+    for gen_cfg in manifest.generators:
+        gen = create_generator(gen_cfg.name)
+        gen.configure(gen_cfg.config)
+        turns = gen.expected_turns_per_prompt()
+        total += len(manifest.adapters) * manifest.num_batches * manifest.batch_size * turns
+    return total
+
+
 def _load_manifest_or_exit(manifest_path: str) -> Manifest:
     try:
         return load_manifest(manifest_path)
@@ -383,12 +429,7 @@ def _load_manifest_or_exit(manifest_path: str) -> Manifest:
 
 
 def _print_run_plan(manifest: Manifest) -> None:
-    total_prompts = (
-        len(manifest.adapters)
-        * len(manifest.generators)
-        * manifest.num_batches
-        * manifest.batch_size
-    )
+    total_prompts = _compute_total_expected(manifest)
     typer.echo()
     typer.secho("═" * 62, fg=typer.colors.BRIGHT_BLACK)
     typer.secho(f"  sentinel — experiment {manifest.experiment_id}", bold=True)
@@ -409,8 +450,9 @@ def _print_run_plan(manifest: Manifest) -> None:
     )
     typer.echo(
         f"  Prompts    : "
-        f"{len(manifest.adapters)} adapters × {len(manifest.generators)} generators × "
-        f"{manifest.num_batches} batches × {manifest.batch_size} = {total_prompts}"
+        f"{len(manifest.adapters)} adapters × {manifest.num_batches} batches × "
+        f"{manifest.batch_size} × {len(manifest.generators)} generators ≈ {total_prompts} "
+        f"(incl. multi-turn turns)"
     )
     typer.echo(f"  Concurrency: combos={manifest.max_combo_concurrency}  prompts={manifest.max_concurrency}")
     typer.echo(f"  Pipeline   : {manifest.pipeline_mode}")

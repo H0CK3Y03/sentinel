@@ -455,10 +455,14 @@ class Orchestrator:
         summary: ExperimentSummary,
     ) -> None:
         summary.total_prompts += 1
-        if outcome.error is not None or outcome.response is None:
+        if (
+            outcome.error is not None
+            or outcome.response is None
+            or outcome.response.is_error
+        ):
             self._record_error_outcome(outcome, m, summary)
             if self.on_trial_complete:
-                self.on_trial_complete(summary.total_prompts, outcome.prompt, None, None)
+                self.on_trial_complete(summary.total_prompts, outcome.prompt, outcome.response, None)
             return
 
         final_verdict = aggregate_final_verdict(
@@ -490,10 +494,13 @@ class Orchestrator:
         summary: ExperimentSummary,
     ) -> None:
         summary.total_errors += 1
+        details: Dict[str, Any] = {"prompt_id": outcome.prompt.prompt_id}
+        if outcome.response is not None:
+            details["error"] = outcome.response.metadata.get("error", outcome.response.text)
         self.logger.log_error(
             m.experiment_id,
-            message=str(outcome.error) if outcome.error else "Unknown execution error",
-            details={"prompt_id": outcome.prompt.prompt_id},
+            message=str(outcome.error) if outcome.error else "Adapter returned an error response",
+            details=details,
         )
 
     def _record_successful_trial(

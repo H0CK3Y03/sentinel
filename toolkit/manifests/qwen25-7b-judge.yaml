@@ -48,4 +48,4 @@ pipeline_mode: "batch"
 rate_limit_rps: 0
 
 # -- Output -----------------------------------------------------------------
-output: "/home/hockey/bachelor_thesis/toolkit/logs/qwen25-7b-judge-001.jsonl"
+output: "logs/qwen25-7b-judge-001.jsonl"

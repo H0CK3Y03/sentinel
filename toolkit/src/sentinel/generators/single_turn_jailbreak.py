@@ -80,6 +80,8 @@ class SingleTurnJailbreakGenerator(AttackGenerator):
         Random seed for reproducibility (default 42).
     """
 
+    display_name = "jailbreak"
+
     def __init__(self, name: str = "single-turn-jailbreak") -> None:
         super().__init__(name=name)
         self._templates = list(_JAILBREAK_TEMPLATES)
@@ -118,6 +120,7 @@ class SingleTurnJailbreakGenerator(AttackGenerator):
                     text=text,
                     metadata={
                         "generator": self.name,
+                        "display_name": self.get_display_name(),
                         "attack_type": "single-turn-jailbreak",
                         "template": template,
                         "goal": goal,

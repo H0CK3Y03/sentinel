@@ -12,6 +12,7 @@ The API key is never hard-coded.  Resolution order:
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any, Dict, Set
 
@@ -59,6 +60,7 @@ class OpenAIApiAdapter(ModelAdapter):
         self._max_tokens: int = 512
         self._temperature: float = 0.7
         self._timeout: float = 60.0
+        self._strip_think_tags: bool = False
         self._config_error: str | None = None
 
         if self.config:
@@ -73,6 +75,7 @@ class OpenAIApiAdapter(ModelAdapter):
         self._max_tokens = int(params.get("max_tokens", self._max_tokens))
         self._temperature = float(params.get("temperature", self._temperature))
         self._timeout = float(params.get("timeout", self._timeout))
+        self._strip_think_tags = bool(params.get("strip_think_tags", self._strip_think_tags))
 
         raw_key = params.get("api_key")
         if raw_key:
@@ -111,6 +114,7 @@ class OpenAIApiAdapter(ModelAdapter):
                 text=f"[Error: {self._config_error}]",
                 tokens=0,
                 latency_ms=0.0,
+                is_error=True,
                 metadata={"adapter": "openai-api", "error": self._config_error},
             )
 
@@ -145,6 +149,8 @@ class OpenAIApiAdapter(ModelAdapter):
         choice = data.get("choices", [{}])[0]
         message = choice.get("message", {}) if isinstance(choice, dict) else {}
         text = str(message.get("content", "")).strip()
+        if self._strip_think_tags:
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
         usage = data.get("usage", {})
         tokens = (
@@ -173,6 +179,7 @@ class OpenAIApiAdapter(ModelAdapter):
             text=f"[Error: {error}]",
             tokens=0,
             latency_ms=round(elapsed_s * 1000, 2),
+            is_error=True,
             metadata={"adapter": "openai-api", "error": error},
         )
 

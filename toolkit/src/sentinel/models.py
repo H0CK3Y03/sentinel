@@ -79,6 +79,7 @@ class ModelResponse:
     text: str = ""
     tokens: int = 0
     latency_ms: float = 0.0
+    is_error: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()

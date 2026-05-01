@@ -1,15 +1,16 @@
 experiment_id: "einfra-001"
 author: "Adam Veselý"
-description: "Red-teaming via e-INFRA CZ OpenAI-compatible API (DeepSeek R1)"
+description: "Red-teaming via e-INFRA CZ OpenAI-compatible API (DeepSeek V3.2 thinking)"
 
 adapters:
   - adapter: openai-api
-    model_id: "deepseek-r1-distill-qwen-32b"
+    model_id: "deepseek-v3.2-thinking"
     config:
       base_url: "https://llm.ai.e-infra.cz/v1"
-      model: "deepseek-r1-distill-qwen-32b"
+      model: "deepseek-v3.2-thinking"
       max_tokens: 512
       temperature: 0.7
+      strip_think_tags: true
 
 generators:
   - name: single-turn-jailbreak
