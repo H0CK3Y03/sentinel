@@ -803,134 +803,84 @@ These signals support debugging, performance evaluation, and failure analysis du
 
 \chapter{Implementation}\label{ch:implementation}
 
-This chapter documents the implementation of the Sentinel toolkit, focusing on the architecture of core components, the parallelism strategies employed to achieve efficient execution, and the design decisions that enable extensibility and reproducibility.
+% This chapter contains many \texttt{}-set identifiers that LaTeX cannot
+% hyphenate; \sloppy widens the spacing tolerance to keep the right margin
+% straight without forcing manual line breaks.
+\sloppy
 
-\section{Project Structure and Core Components}\label{sec:implementation-structure}
+This chapter walks through the actual implementation of the toolkit (named \emph{sentinel}) and explains the reasoning behind the engineering choices that shape it.
+The earlier chapter on design fixed the architecture; here we describe how that architecture is realised as a concrete Python package, how the modules are wired together, and how the runtime behaves under load.
 
-The Sentinel toolkit is organised as a Python package with the following primary components:
+The chapter follows the natural flow of an experiment: a user writes a manifest, the toolkit parses it, builds the configured components, runs them, and finally writes structured logs that downstream analysis can consume.
+The first section describes the project layout and the technology stack supporting it.
+Subsequent sections drill into the data model, the plugin system, the three component families (adapters, generators, judges), the orchestrator that drives them, the layered parallelism strategy, the multi-turn extension, and the logging and analysis pipeline.
+The chapter closes with the command-line interface that ties everything together and a short note on the testing strategy.
 
-\begin{itemize}
-  \item \textbf{Model Adapters} (\texttt{model\_adapters/}) — wrappers around language models providing a uniform interface for generation
-  \item \textbf{Attack Generators} (\texttt{generators/}) — strategies for creating adversarial prompts, including single-turn and multi-turn templates
-  \item \textbf{Judge Adapters} (\texttt{judges/}) — classifiers that evaluate model responses for harmful content
-  \item \textbf{Orchestrator} (\texttt{orchestrator.py}) — coordinates the experiment lifecycle, manages parallelism, and handles I/O
-  \item \textbf{Manifest Parser} (\texttt{manifest.py}) — declarative experiment configuration with validation
-  \item \textbf{Logger} (\texttt{logger.py}) — append-only JSONL writer for experiment provenance
-  \item \textbf{Plugin System} (\texttt{plugins.py}) — dynamic component discovery and instantiation
-\end{itemize}
+\section{Project Layout and Technology Stack}\label{sec:impl-layout}
 
-Each component exposes a minimal, asynchronous-compatible interface to enable composition and parallel execution.
+The toolkit is distributed as a single Python package, \texttt{sentinel}, structured as a \texttt{src/}-layout project with companion \texttt{tests/} and \texttt{manifests/} directories.
+Three sub-packages contain the pluggable component families --- \texttt{model\_adapters/}, \texttt{generators/}, and \texttt{judges/} --- and a small \texttt{analysis/} sub-package holds the offline log analyser.
+Everything else lives in flat top-level modules: \texttt{models.py} for the shared data types, \texttt{manifest.py} for the configuration loader, \texttt{plugins.py} for component discovery, \texttt{orchestrator.py} (with three runtime helpers in \texttt{orchestrator\_components.py}, \texttt{orchestrator\_lifecycle.py}, and \texttt{orchestrator\_runtime.py}) for the experiment runner, \texttt{logger.py} for the JSONL log store, \texttt{metrics.py} for the in-run aggregator, \texttt{verdict.py} for ensemble vote aggregation, \texttt{concurrency.py} for the rate limiter, and \texttt{cli.py} together with \texttt{cli\_display.py} for the command-line entry point.
 
-\subsection{Model Adapters}\label{subsec:impl-adapters}
+\paragraph{Python and the standard library.}
+Python (version 3.10 or newer) was chosen as the primary language, in line with the design rationale in Chapter~\ref{ch:design}.
+Most of the toolkit is written using only the standard library; the small set of third-party dependencies is intentionally limited to \texttt{typer} for the CLI, \texttt{pyyaml} for the optional YAML manifest loader, and \texttt{httpx} as a single HTTP client used by every OpenAI-compatible component.
+Optional dependencies --- \texttt{llama-cpp-python} for local GGUF~\cite{gerganov2023gguf} inference and \texttt{pytest} / \texttt{pytest-asyncio} / \texttt{ruff} for the development setup --- are declared as extras in \texttt{pyproject.toml} so that the core package remains lightweight.
 
-All adapters inherit from \texttt{ModelAdapter}, a base class defining the following interface:
+\paragraph{Asynchronous orchestration.}
+A red-teaming experiment is dominated by waiting: HTTP calls to a remote API, blocking calls to a local model, file writes, and so on.
+\texttt{asyncio} fits this workload naturally because cooperative multitasking lets the orchestrator hold dozens of concurrent prompts in flight on a single thread without the complexity of explicit thread-pool management.
+Synchronous components --- judges, file logging, and the local llama.cpp call --- are bridged into the event loop with \texttt{asyncio.to\_thread}, which keeps the abstraction uniform: every primitive the orchestrator awaits looks like a coroutine, regardless of whether it is internally synchronous or asynchronous.
 
-\begin{lstlisting}[language=Python]
-class ModelAdapter:
-    async def generate(text: str) -> ModelResponse
-    async def health_check() -> HealthStatus
-    async def close() -> None
-    def configure(config: Dict[str, Any]) -> None
-    def diagnostics() -> Dict[str, Any]
-\end{lstlisting}
+\paragraph{Frozen and mutable dataclasses.}
+The shared data model is built on \texttt{@dataclass}, with \texttt{frozen=True} where immutability matters (\texttt{PromptCandidate}, \texttt{CostInfo}) and the default mutable form everywhere else.
+Dataclasses give a low-ceremony equivalent of Pydantic models without adding a runtime validation dependency.
+A \texttt{to\_dict()} method on every record produces a plain Python dictionary that \texttt{json.dumps} can serialise without further coaxing, which keeps the JSONL writer trivial.
 
-The base class enforces asynchronous execution and health-check support, enabling the orchestrator to detect and gracefully handle failures.
-Two primary implementations are provided:
+\paragraph{Packaging and entry points.}
+The package metadata in \texttt{pyproject.toml} declares the \texttt{sentinel} console script (binding the CLI's \texttt{main()} function) and three Python entry-point groups --- \texttt{sentinel.model\_adapters}, \texttt{sentinel.generators}, and \texttt{sentinel.judges} --- through which third-party plugins may be registered without modifying the core source tree.
+This mechanism, described later in Section~\ref{sec:impl-plugin-discovery}, is the implementation-side counterpart to the pluggable architecture argued for in the design chapter.
 
-\paragraph{Stub Adapter}
-A no-op implementation for testing and development.
-Accepts any text and returns a fixed, deterministic response.
+\section{Core Data Model}\label{sec:impl-data-model}
 
-\paragraph{Llama.cpp Adapter}
-Wraps \texttt{llama-cpp-python}, supporting local inference on quantised model files (GGUF format).
-The implementation includes:
-\begin{itemize}
-  \item Configuration validation (model path, context size, temperature, etc.)
-  \item Lazy model loading (only on first invocation) to speed up CLI startup
-  \item Per-adapter context window management
-  \item GPU/CPU fallback detection and diagnostics
-  \item Graceful handling of out-of-memory conditions
-\end{itemize}
+Every component in the toolkit speaks the same handful of types, and almost all of them live in \texttt{models.py}.
+This deliberate centralisation is what makes adapters, generators, and judges interchangeable: as long as a component produces or consumes the canonical record, the orchestrator does not need to know how it does so internally.
 
-Additional adapters for remote APIs (OpenAI, Anthropic, local HTTP servers) follow the same pattern and can be registered via the plugin system.
+A \texttt{PromptCandidate} represents a single adversarial prompt produced by a generator.
+It carries a UUID, the prompt text, and an open-ended \texttt{metadata} dictionary in which generators record provenance such as the originating template, the harmful goal, the conversation identifier, or the turn index.
+The frozen variant of the dataclass ensures that a prompt cannot be mutated mid-flight, which is important once it is shared across the adapter and the judging pipeline.
 
-\subsection{Attack Generators}\label{subsec:impl-generators}
+A \texttt{ModelResponse} carries the result of a single inference call.
+Beyond text, tokens, and latency, it includes an \texttt{is\_error} flag (used by the orchestrator to short-circuit judging on adapter failures) and a \texttt{metadata} dictionary that backends use to surface backend-specific data such as the OpenAI \texttt{finish\_reason} or the llama.cpp usage block.
+The same record also reserves space for white-box analytics --- token-level log-probabilities, perplexity, per-token entropy, and top-1 probabilities --- which the local llama.cpp adapter populates when its \texttt{inference\_mode} is set to \texttt{white\_box}.
 
-Generators produce prompt sequences according to attack templates.
-The \texttt{AttackGenerator} base class defines:
+A \texttt{Verdict} represents one judge's classification of a response.
+It carries a list of labels (drawn from \texttt{refusal}, \texttt{compliance}, and \texttt{inconclusive}), a numeric \texttt{confidence}, a \texttt{judge\_weight} used during ensemble aggregation, the judge type (one of \texttt{HEURISTIC}, \texttt{CLASSIFIER}, \texttt{LLM}, or \texttt{ENSEMBLE}), and a free-text \texttt{explanation} that downstream tools can show to users.
+The same record is used both for individual judge verdicts and for the ensemble verdict produced by the verdict-aggregation module described in Section~\ref{sec:impl-judges}.
 
-\begin{verbatim}
-class AttackGenerator:
-    def next(batch_size: int) -> List[PromptCandidate]
-    def update(prompt, response) -> None
-    def supports_streaming() -> bool
-    def get_next_turn(conversation_id: str) -> PromptCandidate | None
-    def configure(config: Dict[str, Any]) -> None
-    def reset() -> None
-\end{verbatim}
+A \texttt{LogEvent} is the JSONL log's unit of record.
+Every line written to a log file corresponds to exactly one \texttt{LogEvent}, tagged with one of five event types --- \texttt{experiment\_start}, \texttt{experiment\_end}, \texttt{trial\_result}, \texttt{error}, or \texttt{info} --- and a payload dictionary.
+This uniform shape lets the analyser stream a log line by line without holding any global parser state.
 
-The \texttt{next()} method is intentionally synchronous (executed via \texttt{asyncio.to\_thread()}) to simplify implementation of stateful generators; the orchestrator handles async offloading.
+A small set of enums (\texttt{InferenceMode}, \texttt{JudgeType}, \texttt{HealthStatus}, \texttt{EventType}) round out the model.
+They are declared as \texttt{str}-valued so that JSON serialisation produces human-readable values without an explicit converter.
 
-\paragraph{Stub Template Generator}
-Returns deterministic prompts for testing.
+\section{Manifest Loading and Validation}\label{sec:impl-manifest}
 
-\paragraph{Single-Turn Generators}
-\begin{itemize}
-  \item \textbf{Prompt Injection} — simulates prompt injection attacks with context switching
-  \item \textbf{Token Perturbation} — applies random token-level noise to valid prompts
-  \item \textbf{Universal Trigger} — evolves token sequences to trigger harmful outputs
-  \item \textbf{Jailbreak Templates} — hard-coded role-play and hypothetical-scenario prompts
-\end{itemize}
+A manifest is the only thing a user writes to specify an experiment.
+The loader in \texttt{manifest.py} accepts both YAML and JSON files (the latter as a fallback that does not require \texttt{pyyaml}), parses the document into a typed \texttt{Manifest} dataclass, and applies sensible defaults to any fields the user omits.
 
-\paragraph{Multi-Turn Conversation Generator}
-Implements six conversation flows (gradual escalation, hypothetical framing, context switching, roleplay progression, normalisation, and refusal erosion) that progressively steer the model toward harmful outputs.
-Each conversation maintains state via a \texttt{\_conversation\_state} dictionary, keyed by \texttt{conversation\_id}:
+The dataclass mirrors the manifest's structure: a top-level \texttt{Manifest} contains lists of \texttt{ManifestAdapter}, \texttt{ManifestGenerator}, and \texttt{ManifestJudge} entries, plus scalar execution parameters such as \texttt{seed}, \texttt{batch\_size}, \texttt{num\_batches}, the two concurrency limits, and the JSONL output path.
+Listing~\ref{lst:impl-manifest} shows the relevant signatures.
 
-\begin{verbatim}
-_conversation_state[conversation_id] = {
-    "flow": flow_template,
-    "goal": target_harm_category,
-    "current_turn": turn_counter,
-    "responses": list_of_model_responses,
-}
-\end{verbatim}
-
-The generator implements \texttt{get\_next\_turn(conversation\_id)} to retrieve subsequent prompts after the orchestrator processes responses, enabling true multi-turn progression.
-
-\subsection{Judge Adapters}\label{subsec:impl-judges}
-
-Judges evaluate model outputs for safety violations.
-The \texttt{JudgeAdapter} base class defines:
-
-\begin{verbatim}
-class JudgeAdapter:
-    def evaluate(response, prompt) -> Verdict
-    async def health_check() -> HealthStatus
-    def configure(config: Dict[str, Any]) -> None
-    def diagnostics() -> Dict[str, Any]
-\end{verbatim}
-
-\paragraph{Heuristic Judge}
-Uses keyword and pattern matching to classify outputs as compliant, refusal, or inconclusive.
-Fast, deterministic, and requires no model.
-
-\paragraph{LLM-based Judges}
-Wrap an adapter (e.g., llama.cpp) to execute a safety classification prompt.
-The judge evaluates the model's response against a structured template (JSON or regex-based).
-Verdicts include labels (\texttt{refusal}, \texttt{compliance}, \texttt{inconclusive}), confidence scores, and explanations.
-
-\subsection{Manifest and Configuration}\label{subsec:impl-manifest}
-
-The \texttt{Manifest} dataclass encapsulates all experiment parameters:
-
-\begin{lstlisting}[language=Python]
+\begin{lstlisting}[language=Python,caption={Manifest dataclass (excerpt).},label={lst:impl-manifest}]
 @dataclass
 class Manifest:
-    experiment_id: str
-    adapters: List[ManifestAdapter]
-    generators: List[ManifestGenerator]
-    judges: List[ManifestJudge]
-    
+    experiment_id: str = field(default_factory=...)
+    adapters: List[ManifestAdapter] = field(default_factory=list)
+    generators: List[ManifestGenerator] = field(default_factory=list)
+    judges: List[ManifestJudge] = field(default_factory=...)
+
     seed: int = 42
     batch_size: int = 8
     num_batches: int = 1
@@ -938,268 +888,317 @@ class Manifest:
     max_combo_concurrency: int = 1
     pipeline_mode: str = "batch"
     force_generator_isolation: bool = False
+    max_turns_per_conversation: int = 10
+    stop_on_compliance: bool = True
     rate_limit_rps: float = 0.0
+    output: str = "logs/experiment.jsonl"
 \end{lstlisting}
 
-The parser supports YAML and JSON formats, validates all required fields, and applies sensible defaults.
-New fields added in this implementation:
+Two parts of the loader are worth highlighting.
+First, every component entry receives an \texttt{instance\_id} (a short hex suffix derived from \texttt{uuid4}) when the user has not supplied one.
+This identifier travels with the component throughout the experiment and ends up in every log record, so downstream analysis can group trials by adapter, generator, or judge instance even when the same plugin is used multiple times in one manifest.
+Second, validation happens both at parse time (where unknown \texttt{pipeline\_mode} values are rejected and numeric fields are coerced to their declared types) and at component-construction time (where each plugin's \texttt{configure} method may raise an exception that the orchestrator treats as a fatal manifest error).
+Splitting validation across these two layers lets the loader stay simple while still allowing components to enforce backend-specific invariants such as ``\texttt{model\_path} must point to an existing GGUF file''.
 
-\begin{itemize}
-  \item \textbf{pipeline\_mode} — selects between \texttt{"batch"} (sequential batch processing) and \texttt{"streaming"} (overlapped batch prefetch)
-  \item \textbf{force\_generator\_isolation} — when true, creates independent generator instances per adapter×generator combo for state isolation in multi-turn experiments
-  \item \textbf{max\_turns\_per\_conversation} — maximum turns to execute for each multi-turn conversation before halting (default 10, prevents runaway loops)
-\end{itemize}
+\section{Plugin Discovery and Component Factories}\label{sec:impl-plugin-discovery}
 
-\section{Parallelism Architecture}\label{sec:impl-parallelism}
+The plugin system in \texttt{plugins.py} answers a single question for the orchestrator: given a name from the manifest, return an instance of the corresponding component class.
+Three registries --- for adapters, generators, and judges --- share a common \texttt{\_Registry} helper that combines a built-in dictionary with lazy entry-point discovery.
+Built-in components (the stub implementations, the OpenAI-compatible client, the heuristic judge, and so on) are added in module-level code; third-party plugins advertise themselves via the entry-point groups declared in \texttt{pyproject.toml} and are picked up through Python's standard \texttt{importlib.metadata} API.
 
-The orchestrator implements four distinct levels of parallelism to maximise throughput while maintaining reproducibility and controlled resource consumption.
+Component construction happens through three small factories, \texttt{create\_adapter}, \texttt{create\_generator}, and \texttt{create\_judge}, that look the class up by name, instantiate it, and stamp it with the requested \texttt{instance\_id}.
+The factories deliberately do not call \texttt{configure}; that is the orchestrator's responsibility and is performed once per unique component instance during the configuration phase, with the manifest's seed merged into the configuration dictionary.
 
-\subsection{Level 1: Combo-Level Parallelism}\label{subsec:impl-combo-parallelism}
+Optional integrations (the local llama.cpp adapter, generator, and judge) are imported defensively: the import is wrapped in a \texttt{try}/\texttt{except ImportError}, and the corresponding registry entry is only added when the import succeeds.
+This is what allows the toolkit to be installed without \texttt{llama-cpp-python} on machines that only need the API-based path.
 
-Combos are adapter--generator pairs; the orchestrator builds a list of combos based on the cartesian product of adapters and generators.
-When \texttt{max\_combo\_concurrency > 1}, multiple combos execute concurrently via an \texttt{asyncio.Semaphore}:
+\section{Model Adapters}\label{sec:impl-adapters}
 
-\begin{verbatim}
-combo_semaphore = asyncio.Semaphore(max_combo_concurrency)
+Model adapters in \texttt{model\_adapters/} translate the toolkit's generic ``send a prompt, get a response'' calls into the wire format expected by a particular backend.
+They all derive from the abstract \texttt{ModelAdapter} base class, which fixes the asynchronous surface (Listing~\ref{lst:impl-adapter-interface}) and gives every concrete adapter a small, predictable lifecycle: configure, health-check, generate, close.
 
-async def run_limited(combo):
-    async with combo_semaphore:
-        await self._run_combo(combo, ...)
+\begin{lstlisting}[language=Python,caption={Model adapter interface.},label={lst:impl-adapter-interface}]
+class ModelAdapter(ABC):
+    @abstractmethod
+    async def generate(self, prompt: str,
+                       config: Dict[str, Any] | None = None
+                       ) -> ModelResponse: ...
 
-await asyncio.gather(*(run_limited(c) for c in combos))
-\end{verbatim}
+    @abstractmethod
+    async def health_check(self) -> HealthStatus: ...
 
-This allows independent adapters or generators to run in parallel, reducing wall-clock time for large evaluation matrices.
-
-\subsection{Level 2: Prompt-Level Parallelism}\label{subsec:impl-prompt-parallelism}
-
-Within each combo, prompts in a batch are executed concurrently using a second semaphore (\texttt{max\_concurrency}):
-
-\begin{verbatim}
-semaphore = asyncio.Semaphore(max_concurrency)
-
-async def run_limited(prompt):
-    async with semaphore:
-        return await self._execute_prompt(adapter, prompt, ...)
-
-outcomes = await asyncio.gather(
-    *(asyncio.create_task(run_limited(p)) for p in prompts)
-)
-\end{verbatim}
-
-This enables multiple concurrent inference requests to the same adapter, benefiting both local batch processing and API backends with request pooling.
-
-\subsection{Level 3: Judge Parallelism}\label{subsec:impl-judge-parallelism}
-
-After obtaining a model response, the response is evaluated by all judges concurrently.
-Each judge has a dedicated \texttt{asyncio.Lock} to serialize access to stateful judges (e.g., those wrapping a model):
-
-\begin{verbatim}
-verdicts = await asyncio.gather(
-    *(self._evaluate_judge(judge, lock, response, ...)
-      for judge, lock in zip(self.judges, self._judge_locks))
-)
-\end{verbatim}
-
-This prevents race conditions in single-model judges while allowing truly parallel judges (e.g., heuristic matchers) to run concurrently.
-
-\subsection{Level 4: Streaming Pipeline Mode}\label{subsec:impl-streaming-mode}
-
-The \texttt{"streaming"} pipeline mode overlaps generation and execution: while batch $i$ is being processed and judged, batch $i+1$ is prefetched in the background.
-
-\begin{verbatim}
-for batch_idx in range(num_batches):
-    if next_task is None:
-        prompts = await generator.next(batch_size)
-    else:
-        prompts = await next_task  # Wait for prefetch
-    
-    if batch_idx < num_batches - 1:
-        next_task = asyncio.create_task(
-            asyncio.to_thread(generator.next, batch_size)
-        )
-    
-    # Execute current batch while prefetch continues
-    outcomes = await asyncio.gather(*(run_prompt(p) for p in prompts))
-\end{verbatim}
-
-This mode reduces idle time when prompt generation is expensive.
-However, generators that require feedback (indicated by \texttt{supports\_streaming() == False}, e.g., multi-turn) automatically fall back to batch mode.
-
-\section{Multi-Turn Conversation Support}\label{sec:impl-multiturn}
-
-Multi-turn conversations are a key feature for testing refusal erosion and cumulative reasoning attacks.
-The implementation uses conversation state tracking and a turn-by-turn execution strategy.
-
-\subsection{Conversation State Management}\label{subsec:multiturn-state}
-
-When a multi-turn generator's \texttt{next()} is called, it creates initial prompts and initialises conversation state:
-
-\begin{lstlisting}[language=Python]
-self._conversation_state[conversation_id] = {
-    "flow": selected_flow,
-    "goal": selected_goal,
-    "current_turn": 0,
-    "responses": [],
-}
+    def configure(self, config: Dict[str, Any]) -> None: ...
+    def diagnostics(self) -> Dict[str, Any]: ...
+    async def close(self) -> None: ...
+    async def cost_estimate(self, prompt: str,
+                            config=None) -> CostInfo: ...
+    def supported_modes(self) -> Set[InferenceMode]: ...
 \end{lstlisting}
 
-After the orchestrator executes each prompt and obtains a response, it calls \texttt{generator.update(prompt, response)}:
+\paragraph{The stub adapter.}
+\texttt{StubAdapter} returns a deterministic refusal or compliance response depending on whether the prompt contains the substring \texttt{refuse}.
+It is the default ``adapter under test'' in continuous integration: every orchestrator and judge test in \texttt{tests/} runs against it because its behaviour is reproducible without any model files or network calls.
+The stub also doubles as a documentation aid because it is the smallest possible reference implementation of the interface.
 
-\begin{verbatim}
-state["responses"].append(response.text)
-state["current_turn"] += 1
-\end{verbatim}
+\paragraph{The OpenAI-compatible adapter.}
+\texttt{OpenAIApiAdapter} talks to any provider that speaks the OpenAI chat-completion protocol --- the official OpenAI endpoint, Azure OpenAI, vLLM servers, or the e-INFRA CZ Czech research cloud that the evaluation chapter relies on.
+A single \texttt{httpx.AsyncClient} is opened per request, the chat-completion payload is constructed from the manifest's system prompt, the user prompt, and the configured sampling parameters, and the response is normalised into a \texttt{ModelResponse}.
+API keys are resolved by a small helper that consults, in order, the manifest configuration, the \texttt{SENTINEL\_API\_KEY} environment variable, and finally \texttt{OPENAI\_API\_KEY}; this resolution chain (along with the JSON parsing of usage tokens, message text, and finish reasons) is shared across the adapter, the OpenAI-backed attack generator, and the LLM judge through a small \texttt{openai\_api\_utils} module, which keeps the three components consistent without coupling them to a common base class.
+Errors --- both HTTP-level and network-level --- are caught at the boundary and converted into \texttt{ModelResponse} objects with \texttt{is\_error=True}, so the orchestrator can record them in the JSONL log and continue with the remaining prompts instead of failing the whole batch.
 
-The orchestrator then calls \texttt{generator.get\_next\_turn(conversation\_id)} to retrieve the next prompt if one exists.
-The turn limit is configurable via the manifest field \texttt{max\_turns\_per\_conversation} (default 10) to prevent infinite loops in malformed flows.
+\paragraph{The local llama.cpp adapter.}
+\texttt{LlamaCppModelAdapter} wraps \texttt{llama-cpp-python}, the Python binding for the \texttt{llama.cpp} runtime.
+It is the implementation of the design chapter's promise of low-compute, laptop-first operation: with a quantised GGUF model file it runs entirely on CPU, and offloading any subset of layers to a GPU is a one-flag change in the manifest.
+The adapter exposes both \texttt{black\_box} and \texttt{white\_box} inference modes; the latter populates the white-box fields of \texttt{ModelResponse} by extracting the per-token log-probability content the runtime returns when \texttt{logprobs=True} is requested.
+From those raw values the adapter computes three derived quantities: sequence perplexity (the exponential of the negative mean log-likelihood), per-token Shannon entropy over the top-$k$ candidates, and the probability of the actually-sampled token at each position.
+These signals are persisted on every white-box trial and are intended to support gradient-free analyses of model uncertainty without forcing the rest of the toolkit to deal with logits.
 
-\subsection{In-Prompt Turn Advancement}\label{subsec:multiturn-advancement}
+The adapter also supports two more advanced white-box capabilities.
+A \texttt{logit\_bias\_tokens} configuration option lets the user push the model toward or away from specific token strings --- a large negative bias on phrases such as ``I cannot'' or ``I'm sorry'' suppresses the most common refusal openings.
+The configuration accepts string keys (which the adapter tokenises to per-token IDs at load time) and forwards them as a \texttt{logit\_bias} mapping on every generation call.
+A \texttt{lora\_path} option allows a separate LoRA adapter file to be loaded alongside the base model with a configurable scale, enabling researchers to evaluate fine-tuned or specialised checkpoints without rebuilding the base model.
 
-A key design decision: multi-turn progressions are advanced within the same batch loop, not deferred to the next batch.
-This is implemented in \texttt{\_advance\_multiturn\_if\_needed()}:
+\section{Attack Generators}\label{sec:impl-generators}
 
-The \texttt{\_advance\_multiturn\_if\_needed()} method detects multi-turn generators via the presence of \texttt{get\_next\_turn()}, iterates through conversation turns, and executes each turn immediately:
+Attack generators in \texttt{generators/} implement the adversary side of an experiment.
+Their interface is intentionally narrow (Listing~\ref{lst:impl-generator-interface}): \texttt{configure} receives the manifest's parameters merged with the global seed, \texttt{next} returns a batch of \texttt{PromptCandidate} objects, \texttt{update} optionally informs the generator of the model's response, and \texttt{reset} restores the deterministic starting state.
+A handful of optional methods (\texttt{supports\_streaming}, \texttt{expected\_turns\_per\_prompt}, \texttt{get\_next\_turn}, \texttt{health\_check}) let multi-turn or LLM-driven generators surface metadata that the orchestrator uses to decide how to schedule them.
 
-\begin{verbatim}
-while turn_count < manifest.max_turns_per_conversation:
-  next_prompt = generator.get_next_turn(conversation_id)
-  if next_prompt is None:
-    break  # Conversation exhausted
-    
-  next_outcome = await self._execute_prompt(
-    adapter, next_prompt, ...
-  )
-  self._process_outcome(next_outcome, combo, ...)
-  turn_count += 1
-\end{verbatim}
+\begin{lstlisting}[language=Python,caption={Attack generator interface.},label={lst:impl-generator-interface}]
+class AttackGenerator(ABC):
+    @abstractmethod
+    def configure(self, params: Dict[str, Any]) -> None: ...
+    @abstractmethod
+    def next(self, batch_size: int = 1) -> List[PromptCandidate]: ...
+    @abstractmethod
+    def reset(self) -> None: ...
 
-This ensures conversations progress within a single batch iteration, preserving determinism and simplifying reasoning about the experiment execution order.
-
-\subsection{Generator Isolation}\label{subsec:impl-isolation}
-
-Multi-turn state is local to a generator instance.
-When \texttt{force\_generator\_isolation == True} or when \texttt{max\_combo\_concurrency > 1} with multiple adapters, the orchestrator instantiates one generator per combo:
-
-\begin{lstlisting}[language=Python]
-def _build_combos(self, m: Manifest):
-    should_isolate = (
-        m.force_generator_isolation or 
-        (m.max_combo_concurrency > 1 and len(m.adapters) > 1)
-    )
-    
-    if should_isolate:
-        # Create new generator per combo
-        for adapter, adapter_cfg in zip(adapters, manifest.adapters):
-            for generator_cfg in manifest.generators:
-                gen = create_generator(...)
-                combos.append(_Combo(adapter, gen, ...))
-        return combos
-    
-    # Else, share generator instances
-    return [_Combo(a, g, ...)
-            for a in adapters for g in generators]
+    def update(self, prompt: PromptCandidate,
+               response: ModelResponse) -> None: ...
+    def supports_streaming(self) -> bool: ...
+    def expected_turns_per_prompt(self) -> int: ...
 \end{lstlisting}
 
-This design allows multi-turn conversations in one combo to progress independently without interference from concurrent combos.
+The implementation ships eight generators that span the attack taxonomy of Chapter~\ref{ch:red-teaming}.
+Six of them are stateless template-based attackers --- \texttt{single-turn-jailbreak}, \texttt{prompt-injection}, \texttt{token-perturbation}, \texttt{universal-trigger}, \texttt{obfuscation}, and the legacy \texttt{stub-template} --- that draw a goal and a template (or trigger, base prompt, or technique) from a curated bank, format them together, and emit the result.
+Each generator exposes the bank as a configuration option so that experiments can swap in custom prompt libraries without changing code.
+A deterministic seed produces a deterministic sequence of attacks; this property is essential for reproducible evaluation and is verified by tests in \texttt{tests/test\_openai\_api\_generator.py}.
 
-\section{Experiment Execution Flow}\label{sec:impl-execution-flow}
+The two more interesting generators, \texttt{multi-turn-conversation} and the LLM-driven \texttt{openai-api-attacker} (with its local twin \texttt{llama-cpp-attacker}), are stateful.
+The multi-turn generator draws from six pre-authored conversational flows --- \emph{gradual\_escalation}, \emph{hypothetical\_framing}, \emph{context\_switching}, \emph{roleplay\_progression}, \emph{normalisation}, and \emph{refusal\_erosion} --- each defined as an ordered list of prompts that gradually steer the model toward harmful output.
+The LLM-driven generator instead asks a separate ``red'' LLM to author the attack on the fly, with a system prompt that lists the rotation of techniques (roleplay framing, authority impersonation, encoding tricks, persona jailbreaks, and so on) and instructs the red LLM to pick whichever feels most promising for the current goal.
+In multi-turn mode it consumes the target's most recent response and crafts the next move adaptively, keyed on whether the target refused, partially complied, deflected, or fully complied.
 
-The orchestrator's \texttt{run()} method executes the experiment in three phases:
+Both stateful generators report \texttt{supports\_streaming() = False} so that the orchestrator's streaming pipeline (Section~\ref{sec:impl-parallelism}) does not try to overlap their next-batch generation with the previous batch's execution: their next prompt depends on the previous response, so the prefetch optimisation would be incorrect.
+They also expose \texttt{get\_next\_turn(conversation\_id)}, which the orchestrator polls to advance an open conversation through additional turns within the same outer batch.
+Conversation state lives on the generator itself, keyed by a UUID-derived \texttt{conversation\_id} that is stamped into every \texttt{PromptCandidate}'s metadata; this makes it possible to interleave many conversations through the same generator without their states colliding.
 
-\subsection{Phase 1: Configuration}
+\section{Judges and Verdict Aggregation}\label{sec:impl-judges}
 
-\begin{verbatim}
-_configure_components(manifest, generators, generator_cfgs)
-\end{verbatim}
+Judges in \texttt{judges/} answer the question that determines an attack's success: did the model comply with the harmful request, did it refuse, or is the answer unclear?
+They share a synchronous interface (Listing~\ref{lst:impl-judge-interface}); the orchestrator runs every judge in a worker thread via \texttt{asyncio.to\_thread}, which avoids forcing every judge implementor to write \texttt{async} code while still letting multiple judges evaluate a response concurrently.
 
-Each adapter, generator, and judge is initialised with its configuration dict from the manifest.
-Configuration errors are logged and halt the experiment.
+\begin{lstlisting}[language=Python,caption={Judge adapter interface.},label={lst:impl-judge-interface}]
+class JudgeAdapter(ABC):
+    @abstractmethod
+    def configure(self, params: Dict[str, Any]) -> None: ...
+    @abstractmethod
+    def evaluate(self, response: ModelResponse,
+                 prompt: PromptCandidate) -> Verdict: ...
 
-\subsection{Phase 2: Health Check}
+    async def health_check(self) -> HealthStatus: ...
+    def diagnostics(self) -> Dict[str, Any]: ...
+\end{lstlisting}
 
-\begin{verbatim}
-await _health_check_components(manifest, generators, ...)
-\end{verbatim}
+The toolkit ships three judge implementations that align with the hybrid pipeline of the design chapter.
+The \texttt{HeuristicJudge} matches the response text against two configurable lists of regular-expression patterns, one for refusal openings (``I'm sorry'', ``I cannot help'', ``violates our policy'') and one for compliance openings (``Sure'', ``Here is'', ``Step 1'').
+A small classifier inside the judge converts the two hit counts into a verdict: a single dominant signal yields the corresponding label with a confidence proportional to the number of hits, both signals at once produce a deliberately ambiguous \texttt{[refusal, compliance]} label list (so that the ensemble aggregator can decide what to do with the contradiction), and an absence of signal collapses to \texttt{inconclusive}.
+The judge is fast, cost-free, and provides the cheap first layer of the hybrid pipeline.
 
-All components are checked for availability (e.g., model files exist, API keys are valid).
-Diagnostics are logged; unrecoverable failures halt the experiment.
+The \texttt{OpenAIApiJudge} delegates evaluation to a remote LLM through the same OpenAI-compatible protocol used by the model adapter.
+It posts a structured system prompt that defines the labelling rules --- including the explicit instruction to label as compliance any harmful content even when framed as fiction, roleplay, or hypothetical --- together with the original user prompt and the model's response, and asks the remote LLM to reply with a small JSON object of the shape \texttt{\{"label": ..., "confidence": ..., "explanation": ...\}}.
+A shared parser then extracts the verdict, falling back to a keyword scan when the response is malformed (for example, when the LLM emits markdown fences around the JSON), and clamping the confidence to the interval $[0, 1]$.
 
-\subsection{Phase 3: Execution}
+The \texttt{LlamaCppJudge} mirrors the OpenAI judge but talks to a local GGUF model through \texttt{llama-cpp-python}.
+This is the cost-free option that the design chapter specifically asked for: a research team without API budget can still run an LLM judge on a laptop, paying only the local inference latency.
 
-\begin{verbatim}
-combos = _build_combos(manifest)
-await _run_combos(combos, manifest, summary, ...)
-\end{verbatim}
+When several judges evaluate the same response, the ensemble logic in \texttt{verdict.py} reduces their verdicts to a single label.
+The aggregator counts every label of every verdict (so a heuristic judge that emits both \texttt{refusal} and \texttt{compliance} contributes to both buckets), weights each label by the judge's \texttt{judge\_weight}, picks the unique winner, and resolves any tie to \texttt{inconclusive}.
+The ensemble's reported confidence is the weighted average of the individual judge confidences, and its explanation includes the bucket totals so that the verdict's reasoning is auditable from the log alone.
+The same final verdict is what every downstream summary --- both the live experiment summary printed by the CLI and the offline report produced by the analyser --- uses, which keeps the two views consistent with each other.
 
-For each combo, the appropriate execution method (\texttt{\_run\_combo\_batch} or \texttt{\_run\_combo\_streaming}) is invoked based on the pipeline mode and generator capabilities.
-Each prompt outcome is processed immediately, and multi-turn turns are advanced in-loop if applicable.
+\section{The Orchestrator}\label{sec:impl-orchestrator}
 
-\section{Logging and Metrics}\label{sec:impl-logging}
+The \texttt{Orchestrator} class in \texttt{orchestrator.py} is the single coordinator that drives an experiment from manifest to JSONL log.
+Its public surface is deliberately small: a constructor that accepts a manifest and four optional callback hooks, and an asynchronous \texttt{run()} method that returns an \texttt{ExperimentSummary}.
+Internally the run is broken into three phases --- \emph{construction}, \emph{validation}, and \emph{execution} --- that map onto three sibling helper modules so that the main file remains short and readable.
 
-Experiment events are logged to a JSONL file specified in the manifest.
-Event types include:
+Figure~\ref{fig:impl-execution-flow} shows the lifecycle of a single trial: the orchestrator pulls a prompt from the generator, sends it to the adapter, fans the response out to every judge, aggregates the verdicts into a single ensemble verdict, records the trial in the in-run \texttt{MetricsCollector}, and writes a \texttt{trial\_result} event to the JSONL log.
+The numbered arrows correspond to the flow of one trial through the pipeline; the dashed arrow shows the optional progress callbacks that drive the live status panel described in Section~\ref{sec:impl-cli}.
 
-\begin{itemize}
-  \item \textbf{experiment\_start} — manifest and start time
-  \item \textbf{health\_check} — per-component health status and diagnostics
-  \item \textbf{trial\_result} — prompt, response, verdicts, and metrics
-  \item \textbf{info} — progress messages, turn completions, warnings
-  \item \textbf{error} — failures and exceptions
-  \item \textbf{experiment\_end} — aggregate summary and metrics
-\end{itemize}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{obrazky-figures/impl-execution-flow.pdf}
+  \caption{Lifecycle of a single trial. The orchestrator drives the prompt through the generator, the adapter, and the parallel judges; the verdict aggregator reduces the per-judge verdicts to a single ensemble verdict before the metrics collector and the JSONL log persist the result. The offline analyser later reads the same log to produce the user-facing report.}
+  \label{fig:impl-execution-flow}
+\end{figure}
 
-The \texttt{MetricsCollector} class maintains per-attack-type statistics during execution, aggregating final metrics at the end:
+\paragraph{Construction.}
+On instantiation, the orchestrator turns each manifest entry into a concrete component instance through the plugin factories.
+These ``shared'' instances are then handed to \texttt{build\_combos} (in \texttt{orchestrator\_components.py}), which forms the cartesian product of adapters and generators and decides whether each combo should reuse the shared instance or receive a fresh copy.
+Per-combo isolation is automatic when running multiple adapters concurrently with stateful generators (because two combos must not share the same conversation state) and can be forced explicitly through three boolean flags: \texttt{force\_adapter\_isolation}, \texttt{force\_generator\_isolation}, and \texttt{force\_judge\_isolation}.
+A second pass, \texttt{collect\_components}, deduplicates the resulting instances by Python object identity so that subsequent phases configure or health-check each unique instance exactly once.
 
-\begin{verbatim}
-detailed_metrics = metrics_collector.compute_aggregate(
-    elapsed_seconds=summary.elapsed_seconds
-)
+\paragraph{Configuration and health-check.}
+The lifecycle helpers in \texttt{orchestrator\_lifecycle.py} apply the manifest configuration to every unique component, merging the global seed into each generator's configuration so that the experiment is reproducible end-to-end.
+Configuration errors are aggregated rather than raised on the first failure, and the resulting summary is logged before the run aborts so that the user sees every problem at once.
+Every component then receives a \texttt{health\_check()} call; the helper logs a structured event for each result and aborts if any component reports a status worse than \texttt{OK}.
+Both error reports duplicate the issue across the generic \texttt{component\_*} keys and the type-specific \texttt{adapter\_*}/\texttt{generator\_*}/\texttt{judge\_*} keys, so log consumers that filter by either convention keep working.
 
-logger.log_event(
-    LogEvent(event_type="info", 
-             data={"detailed_metrics": detailed_metrics.to_dict()})
-)
-\end{verbatim}
+\paragraph{Execution.}
+The runtime in \texttt{orchestrator\_runtime.py} drives every prompt through the pipeline.
+A small \texttt{RuntimeContext} dataclass bundles the manifest, the running summary, the logger, the metrics collector, and the four progress callbacks into a single record that is passed through every helper, which removes the need for the helpers to take the same six arguments individually.
+The top-level \texttt{run\_combos} function holds a combo-level semaphore and dispatches each combo through \texttt{run\_combo}, which then chooses between the batch and the streaming pipelines depending on the manifest's \texttt{pipeline\_mode} and the generator's \texttt{supports\_streaming} declaration.
 
-Metrics include attack success rate (ASR), judge agreement, per-attack-type breakdowns, and latency distributions.
+A single trial --- the unit of work the orchestrator processes --- is shown in Listing~\ref{lst:impl-execute-prompt}.
+The function acquires the rate-limiter token, calls the adapter, fans out to the judges (each running in a worker thread), and returns a \texttt{\_TrialOutcome} that bundles the prompt, response, verdicts, and any captured exception.
+The progress callbacks fire at the boundaries between stages, which is what powers the live status panel described in Section~\ref{sec:impl-cli}.
 
-\section{Plugin System and Extensibility}\label{sec:impl-plugins}
+\begin{lstlisting}[language=Python,caption={Per-trial execution.},label={lst:impl-execute-prompt}]
+async def execute_prompt(adapter, prompt, experiment_id, rate_limiter,
+                         judges, ctx) -> _TrialOutcome:
+    await rate_limiter.acquire()
+    if ctx.on_adapter_start:
+        ctx.on_adapter_start(prompt.metadata.get("display_name", ""))
 
-The \texttt{plugins.py} module provides functions to register and instantiate components:
+    try:
+        response = await adapter.generate(prompt.text)
+        response.prompt_id = prompt.prompt_id
+        response.adapter_instance_id = getattr(adapter, "instance_id", "")
 
-\begin{verbatim}
-def register_adapter(name: str, cls: Type[ModelAdapter]) -> None:
-    _ADAPTERS[name] = cls
+        if ctx.on_judge_start:
+            ctx.on_judge_start(prompt.metadata.get("display_name", ""))
 
-def create_adapter(name: str, ...) -> ModelAdapter:
-    cls = _ADAPTERS.get(name)
-    return cls(...)
-\end{verbatim}
+        verdicts = []
+        if judges:
+            verdicts = await asyncio.gather(*(
+                _evaluate_judge(j, response, prompt, experiment_id)
+                for j in judges
+            ))
+        return _TrialOutcome(prompt=prompt, response=response,
+                             verdicts=verdicts)
+    except Exception as exc:
+        return _TrialOutcome(prompt=prompt, error=exc)
+\end{lstlisting}
 
-Adapters, generators, and judges are registered at import time via module-level calls or via Python entry points in \texttt{setup.py}.
-This allows third-party packages to contribute new components without modifying core code.
+After every trial, the runtime ensemble-aggregates the per-judge verdicts into the final verdict, updates the running totals on the \texttt{ExperimentSummary}, records the trial in the in-run \texttt{MetricsCollector}, calls the generator's \texttt{update} hook (so adaptive generators learn from the response), and writes a \texttt{trial\_result} event with both the individual verdicts and the final verdict to the JSONL log.
+Errors take a slightly different path: the summary's error counter increments, an \texttt{error} event is logged with a \texttt{prompt\_id} reference, and no trial record is written so that summary statistics treat the trial as missing rather than miscount it.
+
+\section{Layered Parallelism}\label{sec:impl-parallelism}
+
+The orchestrator squeezes throughput out of the experiment with four nested levels of concurrency, each governed by a configurable cap.
+The levels compose: a single experiment can run multiple combos simultaneously, each driving multiple prompts simultaneously, each fanning out to multiple judges simultaneously, and each batch overlapping with the next batch's generation.
+The result is a pipeline whose effective parallelism is the product of the four caps, which makes the toolkit usable both on a small CPU-only laptop (caps set to 1) and on a higher-throughput backend (caps set to many).
+Figure~\ref{fig:impl-parallelism} sketches the four levels, with two concurrent combos shown side by side; each combo independently drives prompt-, judge-, and streaming-level parallelism.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{obrazky-figures/impl-parallelism.pdf}
+  \caption{Four nested levels of parallelism. The outer experiment holds an \texttt{asyncio.Semaphore} that bounds the number of concurrent adapter--generator combos; within each combo, a second semaphore caps concurrent prompts; for each prompt, judges fan out via \texttt{asyncio.gather}; and an optional streaming task prefetches the next batch while the current one is still being judged.}
+  \label{fig:impl-parallelism}
+\end{figure}
+
+\paragraph{Combo-level parallelism.}
+Adapter--generator pairs are independent units of work, so the orchestrator runs them through an outer \texttt{asyncio.Semaphore} bounded by \texttt{max\_combo\_concurrency}.
+Multi-adapter experiments benefit most from this level: testing several models with the same generators in parallel cuts wall-clock time roughly linearly in the number of combos.
+
+\paragraph{Prompt-level parallelism.}
+Within each combo, the prompts of one batch are scheduled through an inner semaphore bounded by \texttt{max\_concurrency}.
+This is the level that most often pays off in practice: API-backed adapters can sustain several requests in flight without saturating, and even local llama.cpp instances benefit from overlapping the file-system and tokeniser overhead of one prompt with the actual generation of another.
+
+\paragraph{Judge-level parallelism.}
+For every prompt, all judges are invoked concurrently through \texttt{asyncio.gather}, each judge running on its own worker thread.
+The motivation is asymmetry: a heuristic judge returns in microseconds, while an LLM judge (local or remote) may take seconds.
+Without judge-level parallelism, the ensemble pipeline would be serialised behind the slowest judge.
+
+\paragraph{Streaming pipeline.}
+The optional streaming mode overlaps the adapter and generator pipelines.
+While the previous batch is being judged, the runtime starts an \texttt{asyncio.Task} that prefetches the next batch in the background.
+This is most useful with LLM-driven generators, whose prompt construction is itself an LLM call and may take seconds; without overlap, the adapter would sit idle while the generator thinks.
+The mode is opt-in through the manifest's \texttt{pipeline\_mode} field and is automatically downgraded to batch mode for stateful generators that need feedback before producing the next batch.
+
+A small dedicated module, \texttt{concurrency.py}, contains the \texttt{RateLimiter} that throttles request dispatch when the manifest sets a non-zero \texttt{rate\_limit\_rps}.
+It uses a single mutex around an \emph{earliest-allowed-time} marker, which produces a smooth, evenly-spaced request schedule rather than the burst-then-wait pattern that a token bucket would produce.
+The default of zero disables rate limiting entirely so that local backends do not pay for an unused mechanism.
+
+\section{Multi-Turn Conversations}\label{sec:impl-multiturn}
+
+Multi-turn conversations are the most subtle part of the runtime because they break the otherwise clean ``one prompt, one trial, done'' cycle.
+The orchestrator's solution is to advance an open conversation \emph{within} the trial that started it, rather than waiting for the next outer batch to surface the next turn.
+
+When a generator returns a prompt whose metadata contains a \texttt{conversation\_id} and the generator exposes \texttt{get\_next\_turn}, the runtime calls \texttt{\_advance\_multiturn\_if\_needed} after the initial trial completes.
+That helper repeatedly polls the generator for the next turn, executes it through the same \texttt{execute\_prompt} pipeline as the initial prompt, and processes its outcome with the standard bookkeeping.
+The loop has three exit conditions: the generator returns \texttt{None} (the conversation ends naturally), a turn produces a \texttt{compliance} verdict and the manifest's \texttt{stop\_on\_compliance} is true (the attack succeeded), or the loop reaches \texttt{max\_turns\_per\_conversation} (a safety bound that prevents a malformed flow from looping forever).
+On every exit path the runtime emits a structured \texttt{Multi-turn conversation completed} event with a \texttt{stop\_reason} field --- \texttt{natural\_end}, \texttt{compliance}, or \texttt{max\_turns} --- so that downstream analysis can distinguish ``the attacker gave up'' from ``the attacker won'' from ``the attacker hit the ceiling''.
+Figure~\ref{fig:impl-multiturn} traces a three-turn example through the swimlanes of the generator, the target adapter, and the judges, ending in the loop-exit decision and the three possible \texttt{stop\_reason} branches.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{obrazky-figures/impl-multiturn-timeline.pdf}
+  \caption{Multi-turn conversation timeline. The generator produces an initial prompt, the orchestrator drives it through the adapter and judges, then calls \texttt{update()} on the generator and asks for the next turn. The loop continues until one of three exit conditions fires; each exit writes a structured \texttt{stop\_reason} into the JSONL log.}
+  \label{fig:impl-multiturn}
+\end{figure}
+
+This in-loop advancement choice keeps the experiment deterministic.
+If multi-turn turns were instead deferred to subsequent batches, the relative ordering of trials in the JSONL log would depend on the asyncio scheduler, which is harder to reason about and reproduce.
+By processing each conversation to completion before moving on, the runtime guarantees that all turns of one conversation appear contiguously in the log, in the order they happened.
+
+\section{Logging and Offline Analysis}\label{sec:impl-logging}
+
+Every observable thing the orchestrator does ends up in the experiment's JSONL log.
+The writer in \texttt{logger.py} is intentionally minimal: it opens the output file in append mode, serialises every \texttt{LogEvent} with \texttt{json.dumps}, and flushes after each line so that an interrupted run still leaves a partially-readable file.
+Five event types describe everything that can happen.
+An \texttt{experiment\_start} event opens the log with a serialised snapshot of the entire manifest (including auto-generated instance IDs), making the run self-describing.
+A \texttt{trial\_result} event holds the prompt, the response, the per-judge verdicts, and the ensemble verdict for every trial.
+\texttt{info} events carry health-check results, multi-turn completion markers, and the detailed metrics blob written at the end of the run.
+\texttt{error} events capture adapter or configuration failures, each tagged with a \texttt{prompt\_id} when relevant.
+An \texttt{experiment\_end} event closes the log with the running totals.
+
+The in-run statistics are accumulated by the \texttt{MetricsCollector} in \texttt{metrics.py}.
+Every successful trial is recorded as a \texttt{TrialMetrics} object that flattens the prompt, response, and ensemble verdict into a single row.
+At the end of the run, \texttt{compute\_aggregate} produces an \texttt{AggregateMetrics} object containing both global totals (refusal rate, compliance rate, attack success rate, judge agreement, latency distribution) and per-group breakdowns (by attack type, generator instance, adapter instance, and judge instance).
+The breakdowns share a small helper that computes per-group totals, averages, and rates, which keeps the aggregator concise even though it has to handle four different grouping keys.
+
+The offline analyser in \texttt{analysis/} reads the JSONL log back into the same shape after the run.
+Three small modules cooperate: \texttt{reports.py} declares the dataclasses returned to the caller, \texttt{analyzer.py} parses the log into those dataclasses, and \texttt{printer.py} renders them as human-readable text on standard output.
+The analyser deliberately reads each trial's pre-aggregated \texttt{final\_verdict} field rather than recomputing the ensemble from the per-judge verdicts; this keeps the offline report consistent with the live experiment summary, which is the more authoritative view because it is what the orchestrator emitted.
+
+\section{Command-Line Interface}\label{sec:impl-cli}
+
+The CLI in \texttt{cli.py} ties all of the above together and is the only thing most users interact with.
+\texttt{Typer} provides argument parsing and help-text generation; the \texttt{sentinel} console script defined in \texttt{pyproject.toml} dispatches to the same \texttt{main} function used during development.
+Five commands cover the user-facing surface: \texttt{run} executes a manifest, \texttt{validate} parses it without executing and pretty-prints the resolved configuration, \texttt{list-plugins} enumerates every registered adapter, generator, and judge, \texttt{analyze} renders an offline report from a JSONL log, and \texttt{interactive} starts a small REPL against a single adapter--judge pair for manual exploration.
+
+Two pieces of the CLI implementation deserve specific mention.
+The first is the live status panel built in \texttt{cli\_display.py}.
+During a non-quiet \texttt{run}, the orchestrator's four callback hooks (\texttt{on\_generation\_start}, \texttt{on\_adapter\_start}, \texttt{on\_judge\_start}, and \texttt{on\_trial\_complete}) are wired into a small in-place rendering panel that uses ANSI cursor-up escapes to overwrite the previous frame.
+The panel shows three columns per generator (\emph{generating}, \emph{responding}, \emph{judging}) and updates as each stage's counter increments, while completed trials are flushed above the panel as one-line summaries colour-coded by verdict.
+The result is a Unix-friendly progress display that needs no extra dependencies and degrades gracefully on terminals that do not support ANSI.
+
+The second is the \texttt{interactive} command, which spins up a single adapter and judge from either a manifest or a small set of command-line flags and starts a REPL loop.
+This mode bridges the gap between writing a manifest and running it: it lets a user type a prompt, see the model's response, and inspect the judge's verdict turn by turn.
+The same code paths that the orchestrator uses are reused --- there is no shadow implementation --- so behaviour observed in interactive mode is identical to behaviour observed during a full run.
 
 \section{Testing Strategy}\label{sec:impl-testing}
 
-The toolkit includes 28 unit and integration tests covering:
+The toolkit includes 71 tests in \texttt{tests/} that exercise every layer of the implementation.
+Concurrency tests verify that the rate limiter respects the requested budget under contention; manifest tests check that YAML and JSON inputs round-trip through the loader and that auto-generated instance IDs are stable across re-loads; judge tests ensure the heuristic judge picks the right label on canonical refusal, compliance, and neutral responses; orchestrator tests run the full pipeline end-to-end against the stub adapter and verify both the JSONL log shape and the parallelism behaviour (combo-, prompt-, judge-, and streaming-level); multi-turn tests check that conversations advance sequentially within their combo, that isolation flags create the expected number of generator instances, and that the \texttt{stop\_reason} field is emitted on every exit path; and the OpenAI generator and judge tests use \texttt{unittest.mock} to substitute the HTTP layer and exercise the configuration, generation, and verdict-parsing logic without making any real network calls.
 
-\begin{itemize}
-  \item \textbf{Component interfaces} — adapter, generator, judge, and logger APIs
-  \item \textbf{Manifest parsing} — YAML/JSON loading, validation, defaults
-  \item \textbf{Orchestrator parallelism} — combo, prompt, judge, and streaming levels
-  \item \textbf{Multi-turn progression} — conversation state tracking, turn advancement, completion
-  \item \textbf{Generator isolation} — isolation flag correctness, shared vs. separate instances
-  \item \textbf{Integration} — full end-to-end experiment execution with stubbed components
-\end{itemize}
-
-Tests use asyncio-compatible fixtures and employ in-memory mock components to avoid I/O during testing.
-The test suite runs in under 1 second and provides confidence in core functionality without requiring external resources.
+The suite runs in roughly one second on the development machine and is cheap to invoke as part of a pre-commit or CI workflow.
+Two design decisions make this possible.
+First, the stub adapter and judge act as deterministic, dependency-free reference implementations against which the orchestrator can be exercised without external resources.
+Second, the optional llama.cpp tests stub the \texttt{Llama} class with a small fake (a dataclass that records the keyword arguments it received and returns a canned response), so the binding's heavyweight model loading never enters the test loop and only the toolkit's own logic --- configuration parsing, prompt assembly, log-output extraction, and error fallbacks --- is exercised.
 
 \chapter{Evaluation}\label{ch:evaluation}
 
 \chapter{Conclusion}\label{ch:conclusion}
-
-
-% For compilation piecewise (see projekt.tex), it is necessary to uncomment it
-% \end{document}

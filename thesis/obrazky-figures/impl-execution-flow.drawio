@@ -1,0 +1,140 @@
+<mxfile host="app.diagrams.net" version="29.2.9">
+  <diagram name="Execution-Flow" id="ImplExecFlow">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Lifecycle of a single trial" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="380" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Manifest -->
+        <mxCell id="manifest" value="Manifest&#10;(YAML/JSON)" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Orchestrator (central) -->
+        <mxCell id="orch" value="Orchestrator&#10;&#10;construct &#8594; configure&#10;&#8594; health-check &#8594; run" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="220" y="150" width="160" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Generator -->
+        <mxCell id="gen" value="Attack generator&#10;next() / get_next_turn()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="450" y="80" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Adapter -->
+        <mxCell id="adp" value="Model adapter&#10;generate(prompt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="450" y="180" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Judges (multiple) -->
+        <mxCell id="judges-group" value="Judges (run concurrently)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="700" y="80" width="200" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="j1" value="HeuristicJudge" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="110" width="160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="j2" value="OpenAIApiJudge" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="150" width="160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="j3" value="LlamaCppJudge" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="720" y="190" width="160" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Verdict aggregator -->
+        <mxCell id="agg" value="Verdict aggregator&#10;(weighted vote)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="450" y="290" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Metrics collector -->
+        <mxCell id="metrics" value="MetricsCollector" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="700" y="290" width="200" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- JSONL log -->
+        <mxCell id="log" value="JSONL log store" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="260" y="380" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Analyser -->
+        <mxCell id="analyzer" value="Offline analyser&#10;sentinel analyze" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="490" y="395" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Live summary -->
+        <mxCell id="summary" value="Live summary&#10;(stdout)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="395" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <!-- Manifest -> Orchestrator -->
+        <mxCell id="e1" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="manifest" target="orch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (1) Orchestrator -> Generator (top) -->
+        <mxCell id="e2" value="(1) ask for prompt" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="orch" target="gen">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (2) Generator -> Orchestrator (top, return) -->
+        <mxCell id="e3" value="(2) PromptCandidate" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="gen" target="orch">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="160" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- (3) Orchestrator -> Adapter -->
+        <mxCell id="e4" value="(3) generate(text)" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="orch" target="adp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (4) Adapter -> Orchestrator (return) -->
+        <mxCell id="e5" value="(4) ModelResponse" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.95;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="adp" target="orch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (5) Adapter -> Judges -->
+        <mxCell id="e6" value="(5) evaluate()" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="adp" target="judges-group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (6) Judges -> Aggregator -->
+        <mxCell id="e7" value="(6) Verdict[]" style="endArrow=classic;html=1;rounded=0;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;align=center;" edge="1" parent="1" source="judges-group" target="agg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="270" />
+              <mxPoint x="660" y="270" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- (7) Aggregator -> MetricsCollector -->
+        <mxCell id="e8" value="(7) record" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="agg" target="metrics">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (8) Aggregator -> Log -->
+        <mxCell id="e9" value="(8) write trial" style="endArrow=classic;html=1;rounded=0;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="agg" target="log">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Log -> Analyser -->
+        <mxCell id="e10" value="read" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="log" target="analyzer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Orchestrator -> Live summary (dashed, side channel) -->
+        <mxCell id="e11" value="emit progress" style="endArrow=classic;html=1;rounded=0;dashed=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;fontSize=10;align=center;" edge="1" parent="1" source="orch" target="summary">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
