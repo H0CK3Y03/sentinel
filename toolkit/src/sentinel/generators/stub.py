@@ -92,11 +92,15 @@ class StubAttackGenerator(AttackGenerator):
         if not self._configured:
             self.configure({})
 
+        # Without templates × goals there is nothing to generate; return empty
+        # rather than crashing with IndexError on the index lookup below.
+        if not self._combinations:
+            return []
+
         prompts: List[PromptCandidate] = []
         for _ in range(batch_size):
             if self._index >= len(self._combinations):
-                # wrap around
-                self._index = 0
+                self._index = 0  # wrap around
             text = self._combinations[self._index]
             prompts.append(
                 PromptCandidate(

@@ -25,7 +25,7 @@ import random
 from typing import Any, Dict, List
 
 from sentinel.generators.base import AttackGenerator
-from sentinel.models import ModelResponse, PromptCandidate
+from sentinel.models import PromptCandidate
 
 
 # ---------------------------------------------------------------------------
@@ -250,9 +250,6 @@ class ObfuscationGenerator(AttackGenerator):
     def reset(self) -> None:
         self._prompt_counter = 0
         self._rng = random.Random(self._seed)
-
-    def update(self, prompt: PromptCandidate, response: ModelResponse) -> None:  # noqa: ARG002
-        pass
 
     # -- obfuscation methods --------------------------------------------------
 

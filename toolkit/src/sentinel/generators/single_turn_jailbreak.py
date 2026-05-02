@@ -136,7 +136,3 @@ class SingleTurnJailbreakGenerator(AttackGenerator):
         """Reset internal state for a fresh run."""
         self._prompt_counter = 0
         self._rng = random.Random(self._seed)
-
-    def update(self, prompt: PromptCandidate, response: Any) -> None:
-        """Single-turn attacks are stateless; no update needed."""
-        pass

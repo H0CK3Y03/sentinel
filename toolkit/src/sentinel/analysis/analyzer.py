@@ -6,7 +6,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from sentinel.analysis.reports import (
     AdapterReport,
@@ -16,6 +16,10 @@ from sentinel.analysis.reports import (
     JudgePerformanceReport,
 )
 
+
+# ---------------------------------------------------------------------------
+# Internal record types
+# ---------------------------------------------------------------------------
 
 @dataclass
 class _TrialRecord:
@@ -46,18 +50,35 @@ class _TrialRecord:
 class _GroupBuckets:
     """Per-group trial buckets accumulated while scanning the log."""
 
-    by_attack_type: Dict[str, List[_TrialRecord]] = field(default_factory=lambda: defaultdict(list))
-    by_generator: Dict[str, List[_TrialRecord]] = field(default_factory=lambda: defaultdict(list))
-    by_adapter: Dict[str, List[_TrialRecord]] = field(default_factory=lambda: defaultdict(list))
-    by_judge: Dict[str, List[Dict[str, Any]]] = field(default_factory=lambda: defaultdict(list))
+    by_attack_type: Dict[str, List[_TrialRecord]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    by_generator: Dict[str, List[_TrialRecord]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    by_adapter: Dict[str, List[_TrialRecord]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    by_judge: Dict[str, List[Dict[str, Any]]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
 
     generator_names: Dict[str, str] = field(default_factory=dict)
     adapter_models: Dict[str, str] = field(default_factory=dict)
 
     compliances: List[_TrialRecord] = field(default_factory=list)
     refusals: List[_TrialRecord] = field(default_factory=list)
+    inconclusive: List[_TrialRecord] = field(default_factory=list)
     judge_agreements: List[float] = field(default_factory=list)
 
+    def all_records(self) -> List[_TrialRecord]:
+        """Flat list of every trial record, regardless of verdict."""
+        return self.compliances + self.refusals + self.inconclusive
+
+
+# ---------------------------------------------------------------------------
+# Analyzer
+# ---------------------------------------------------------------------------
 
 class ExperimentAnalyzer:
     """Parse JSONL experiment logs and emit an :class:`ExperimentReport`.
@@ -129,27 +150,23 @@ class ExperimentAnalyzer:
     # -- per-trial indexing --------------------------------------------------
 
     def _index_trial(self, trial: Dict[str, Any], buckets: _GroupBuckets) -> None:
+        """Extract one trial's payload and route it into the right buckets."""
         data = trial.get("data", {})
         prompt = data.get("prompt", {})
         response = data.get("response", {})
         verdicts = data.get("verdicts", [])
+        final_verdict = data.get("final_verdict") or {}
 
-        prompt_metadata = prompt.get("metadata", {})
-        attack_type = (
-            prompt_metadata.get("attack_type")
-            or prompt_metadata.get("generator_name")
-            or "unknown"
+        attack_type, generator_name, generator_id, adapter_id = (
+            self._extract_identifiers(prompt, response)
         )
-        generator_name = prompt_metadata.get("generator_name") or attack_type
-        generator_instance_id = prompt_metadata.get("generator_instance_id") or attack_type
-        adapter_instance_id = response.get("adapter_instance_id") or response.get("model_id", "unknown")
-
-        buckets.generator_names.setdefault(generator_instance_id, generator_name)
+        buckets.generator_names.setdefault(generator_id, generator_name)
         buckets.adapter_models.setdefault(
-            adapter_instance_id, response.get("model_id", adapter_instance_id)
+            adapter_id, response.get("model_id", adapter_id)
         )
 
-        final_label, agreement = self._consensus(verdicts)
+        final_label = (final_verdict.get("labels") or ["inconclusive"])[0]
+        agreement = self._judge_agreement(verdicts)
         if verdicts:
             buckets.judge_agreements.append(agreement)
 
@@ -157,15 +174,15 @@ class ExperimentAnalyzer:
             prompt=prompt.get("text", ""),
             response=response.get("text", ""),
             verdict=final_label,
-            confidence=self._mean(v.get("confidence", 0.0) for v in verdicts),
+            confidence=float(final_verdict.get("confidence") or 0.0),
             response_time=response.get("latency_ms", 0),
             response_tokens=response.get("tokens", 0),
             judge_agreement=agreement,
         )
 
         buckets.by_attack_type[attack_type].append(record)
-        buckets.by_generator[generator_instance_id].append(record)
-        buckets.by_adapter[adapter_instance_id].append(record)
+        buckets.by_generator[generator_id].append(record)
+        buckets.by_adapter[adapter_id].append(record)
 
         for verdict in verdicts:
             judge_id = verdict.get("judge_instance_id") or verdict.get("judge_type", "unknown")
@@ -177,49 +194,57 @@ class ExperimentAnalyzer:
                 }
             )
 
+        # Also track each record in its top-level verdict bucket so the report
+        # can include inconclusive trials in averages and group totals.
         if final_label == "compliance":
             buckets.compliances.append(record)
         elif final_label == "refusal":
             buckets.refusals.append(record)
+        else:
+            buckets.inconclusive.append(record)
 
     @staticmethod
-    def _consensus(verdicts: List[Dict[str, Any]]) -> tuple[str, float]:
-        """Return ``(final_label, agreement)`` for one trial's judge verdicts.
+    def _extract_identifiers(
+        prompt: Dict[str, Any], response: Dict[str, Any]
+    ) -> tuple[str, str, str, str]:
+        """Pull attack_type / generator_name / generator_id / adapter_id out of a trial."""
+        meta = prompt.get("metadata", {})
+        attack_type = (
+            meta.get("attack_type")
+            or meta.get("generator_name")
+            or "unknown"
+        )
+        generator_name = meta.get("generator_name") or attack_type
+        generator_id = meta.get("generator_instance_id") or attack_type
+        adapter_id = (
+            response.get("adapter_instance_id")
+            or response.get("model_id", "unknown")
+        )
+        return attack_type, generator_name, generator_id, adapter_id
 
-        The label is decided by majority vote across compliance/refusal; ties
-        fall through to ``inconclusive``. Agreement is the share of judges
-        that picked the dominant label. With no verdicts, returns
-        ``("inconclusive", 0.0)``.
-        """
-        labels = [(v.get("labels") or ["inconclusive"])[0] for v in verdicts]
-        if not labels:
-            return "inconclusive", 0.0
+    @staticmethod
+    def _judge_agreement(verdicts: List[Dict[str, Any]]) -> float:
+        """Return the share of judges whose first label was the most common one."""
+        if not verdicts:
+            return 0.0
 
-        if all(label == labels[0] for label in labels):
-            return labels[0], 1.0
-
-        compliance_count = sum(1 for label in labels if label == "compliance")
-        refusal_count = sum(1 for label in labels if label == "refusal")
-        if compliance_count > refusal_count:
-            final_label = "compliance"
-        elif refusal_count > compliance_count:
-            final_label = "refusal"
-        else:
-            final_label = "inconclusive"
-
-        agreement = max(compliance_count, refusal_count) / len(labels)
-        return final_label, agreement
+        first_labels = [(v.get("labels") or ["inconclusive"])[0] for v in verdicts]
+        counts: Dict[str, int] = {}
+        for label in first_labels:
+            counts[label] = counts.get(label, 0) + 1
+        return max(counts.values()) / len(first_labels)
 
     # -- summarisation primitives -------------------------------------------
 
     @staticmethod
-    def _mean(values: Any) -> float:
+    def _mean(values: Iterable[Any]) -> float:
+        """Mean over an iterable, returning ``0.0`` for an empty input."""
         items = list(values)
         return sum(items) / len(items) if items else 0.0
 
     @staticmethod
     def _summarise(records: List[_TrialRecord]) -> Dict[str, Any]:
-        """Return the per-group totals/rates/averages shared by every report type."""
+        """Per-group totals/rates/averages used by every report type."""
         if not records:
             return {
                 "total_prompts": 0,
@@ -235,36 +260,36 @@ class ExperimentAnalyzer:
         compliances = sum(1 for r in records if r.verdict == "compliance")
         refusals = sum(1 for r in records if r.verdict == "refusal")
         inconclusive = sum(1 for r in records if r.verdict == "inconclusive")
+        n = len(records)
         return {
-            "total_prompts": len(records),
+            "total_prompts": n,
             "compliances": compliances,
             "refusals": refusals,
             "inconclusive": inconclusive,
-            "asr": compliances / len(records),
-            "avg_confidence": sum(r.confidence for r in records) / len(records),
-            "avg_response_time_ms": sum(r.response_time for r in records) / len(records),
-            "avg_response_tokens": int(
-                sum(r.response_tokens for r in records) / len(records)
-            ),
+            "asr": compliances / n,
+            "avg_confidence": sum(r.confidence for r in records) / n,
+            "avg_response_time_ms": sum(r.response_time for r in records) / n,
+            "avg_response_tokens": int(sum(r.response_tokens for r in records) / n),
         }
 
     def _overall_stats(self, buckets: _GroupBuckets) -> Dict[str, Any]:
+        """Top-level rates and averages across every recorded trial."""
         total = len(self.trials)
         compliances = len(buckets.compliances)
         refusals = len(buckets.refusals)
         inconclusive = total - compliances - refusals
 
-        observed_records = buckets.compliances + buckets.refusals
+        all_records = buckets.all_records()
         return {
             "overall_asr": compliances / total if total else 0.0,
             "overall_refusal_rate": refusals / total if total else 0.0,
             "overall_inconclusive_rate": inconclusive / total if total else 0.0,
             "avg_judge_agreement": self._mean(buckets.judge_agreements),
             "overall_avg_response_time_ms": self._mean(
-                r.response_time for r in observed_records
+                r.response_time for r in all_records
             ),
             "overall_avg_response_tokens": int(
-                self._mean(r.response_tokens for r in observed_records)
+                self._mean(r.response_tokens for r in all_records)
             ),
         }
 
@@ -314,8 +339,7 @@ class ExperimentAnalyzer:
             inconclusive = sum(1 for v in verdicts if v["label"] == "inconclusive")
             avg_conf = (
                 sum(v["confidence"] for v in verdicts) / len(verdicts)
-                if verdicts
-                else 0.0
+                if verdicts else 0.0
             )
             judge_type = verdicts[0].get("judge_type", "unknown") if verdicts else "unknown"
             reports[judge_id] = JudgePerformanceReport(

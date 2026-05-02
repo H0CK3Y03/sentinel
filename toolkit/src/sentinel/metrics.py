@@ -63,9 +63,6 @@ class TrialMetrics:
             return 0.0
 
         labels = [v.labels[0] if v.labels else "inconclusive" for v in verdicts]
-        if not labels:
-            return 0.0
-
         label_counts: Dict[str, int] = {}
         for label in labels:
             label_counts[label] = label_counts.get(label, 0) + 1
@@ -209,11 +206,11 @@ class MetricsCollector:
         prompt: PromptCandidate,
         response: ModelResponse,
         verdicts: List[Verdict],
-        final_verdict: Verdict | None = None,
+        final_verdict: Verdict,
         attack_type: str = "",
     ) -> None:
         """Record a single trial and its evaluation results."""
-        final_label, final_confidence = self._unpack_final_verdict(final_verdict)
+        final_label = final_verdict.labels[0] if final_verdict.labels else "inconclusive"
         trial = TrialMetrics(
             prompt_id=prompt.prompt_id,
             prompt_text=prompt.text,
@@ -223,7 +220,7 @@ class MetricsCollector:
             response_tokens=response.tokens,
             verdicts=verdicts,
             final_verdict_label=final_label,
-            final_verdict_confidence=final_confidence,
+            final_verdict_confidence=final_verdict.confidence,
             judge_agreement=TrialMetrics.compute_judge_agreement(verdicts),
             attack_type=attack_type,
             model_id=response.model_id,
@@ -231,13 +228,6 @@ class MetricsCollector:
             generator_instance_id=prompt.metadata.get("generator_instance_id", ""),
         )
         self.trials.append(trial)
-
-    @staticmethod
-    def _unpack_final_verdict(final_verdict: Verdict | None) -> tuple[str, float]:
-        if final_verdict is None:
-            return "inconclusive", 0.0
-        label = final_verdict.labels[0] if final_verdict.labels else "inconclusive"
-        return label, final_verdict.confidence
 
     # -- aggregation ---------------------------------------------------------
 

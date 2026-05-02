@@ -58,10 +58,7 @@ T = TypeVar("T")
 
 
 def _iter_entry_points(group: str):
-    eps = entry_points()
-    if hasattr(eps, "select"):
-        return eps.select(group=group)
-    return eps.get(group, [])
+    return entry_points().select(group=group)
 
 
 @dataclass

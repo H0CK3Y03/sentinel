@@ -3,7 +3,8 @@
 Works with any provider that speaks the OpenAI chat-completion protocol:
 e-INFRA CZ (https://llm.ai.e-infra.cz/v1), OpenAI, Azure OpenAI, vLLM, etc.
 
-The API key is never hard-coded.  Resolution order:
+The API key is never hard-coded. Resolution order:
+
     1. ``api_key`` key in the manifest config block
     2. ``SENTINEL_API_KEY`` environment variable
     3. ``OPENAI_API_KEY`` environment variable
@@ -11,7 +12,6 @@ The API key is never hard-coded.  Resolution order:
 
 from __future__ import annotations
 
-import os
 import re
 import time
 from typing import Any, Dict, Set
@@ -20,6 +20,12 @@ import httpx
 
 from sentinel.model_adapters.base import ModelAdapter
 from sentinel.models import CostInfo, HealthStatus, InferenceMode, ModelResponse
+from sentinel.openai_api_utils import (
+    extract_finish_reason,
+    extract_message_text,
+    extract_token_usage,
+    resolve_api_key,
+)
 
 _DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
@@ -36,7 +42,7 @@ class OpenAIApiAdapter(ModelAdapter):
         Model name the endpoint should serve, e.g. ``deepseek-r1-distill-qwen-32b``.
         Falls back to ``model_id`` when not set.
     api_key : str
-        Auth token.  Prefer environment variables over embedding a key in YAML.
+        Auth token. Prefer environment variables over embedding a key in YAML.
     system_prompt : str
         System message prepended to every request (default: generic assistant).
     max_tokens : int
@@ -45,6 +51,8 @@ class OpenAIApiAdapter(ModelAdapter):
         Sampling temperature (default 0.7).
     timeout : float
         HTTP request timeout in seconds (default 60).
+    strip_think_tags : bool
+        Strip ``<think>...</think>`` blocks from the response (default False).
     """
 
     def __init__(
@@ -76,21 +84,13 @@ class OpenAIApiAdapter(ModelAdapter):
         self._temperature = float(params.get("temperature", self._temperature))
         self._timeout = float(params.get("timeout", self._timeout))
         self._strip_think_tags = bool(params.get("strip_think_tags", self._strip_think_tags))
-
-        raw_key = params.get("api_key")
-        if raw_key:
-            self._api_key = str(raw_key)
-        else:
-            self._api_key = (
-                os.environ.get("SENTINEL_API_KEY")
-                or os.environ.get("OPENAI_API_KEY")
-            )
+        self._api_key = resolve_api_key(params.get("api_key"))
 
         self._config_error = (
             None
             if self._api_key
             else (
-                "No API key found.  Set 'api_key' in the manifest config, "
+                "No API key found. Set 'api_key' in the manifest config, "
                 "or export SENTINEL_API_KEY / OPENAI_API_KEY."
             )
         )
@@ -109,15 +109,41 @@ class OpenAIApiAdapter(ModelAdapter):
             self._apply_config(self.config)
 
         if self._config_error:
-            return ModelResponse(
-                model_id=self.model_id,
-                text=f"[Error: {self._config_error}]",
-                tokens=0,
-                latency_ms=0.0,
-                is_error=True,
-                metadata={"adapter": "openai-api", "error": self._config_error},
-            )
+            return self._error_response(self._config_error, elapsed_s=0.0)
 
+        started = time.perf_counter()
+        try:
+            data = await self._post_chat_completion(prompt)
+        except httpx.HTTPStatusError as exc:
+            error = f"HTTP {exc.response.status_code}: {exc.response.text[:300]}"
+            return self._error_response(error, time.perf_counter() - started)
+        except Exception as exc:
+            return self._error_response(str(exc), time.perf_counter() - started)
+
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        text = extract_message_text(data)
+        if self._strip_think_tags:
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+        usage = data.get("usage", {})
+        tokens = extract_token_usage(usage) or len(text.split())
+
+        return ModelResponse(
+            model_id=self.model_id,
+            text=text,
+            tokens=tokens,
+            latency_ms=elapsed_ms,
+            metadata={
+                "adapter": "openai-api",
+                "base_url": self._base_url,
+                "model": self._model,
+                "finish_reason": extract_finish_reason(data),
+                "usage": usage if isinstance(usage, dict) else {},
+            },
+        )
+
+    async def _post_chat_completion(self, prompt: str) -> Dict[str, Any]:
+        """POST a chat-completion request and return the parsed JSON body."""
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -132,45 +158,10 @@ class OpenAIApiAdapter(ModelAdapter):
             "max_tokens": self._max_tokens,
             "temperature": self._temperature,
         }
-
-        started = time.perf_counter()
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.HTTPStatusError as exc:
-            error = f"HTTP {exc.response.status_code}: {exc.response.text[:300]}"
-            return self._error_response(error, time.perf_counter() - started)
-        except Exception as exc:
-            return self._error_response(str(exc), time.perf_counter() - started)
-
-        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-        choice = data.get("choices", [{}])[0]
-        message = choice.get("message", {}) if isinstance(choice, dict) else {}
-        text = str(message.get("content", "")).strip()
-        if self._strip_think_tags:
-            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-
-        usage = data.get("usage", {})
-        tokens = next(
-            (usage.get(k) for k in ("total_tokens", "completion_tokens") if isinstance(usage.get(k), int)),
-            len(text.split()),
-        )
-
-        return ModelResponse(
-            model_id=self.model_id,
-            text=text,
-            tokens=tokens,
-            latency_ms=elapsed_ms,
-            metadata={
-                "adapter": "openai-api",
-                "base_url": self._base_url,
-                "model": self._model,
-                "finish_reason": choice.get("finish_reason", "") if isinstance(choice, dict) else "",
-                "usage": usage if isinstance(usage, dict) else {},
-            },
-        )
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            resp.raise_for_status()
+            return resp.json()
 
     def _error_response(self, error: str, elapsed_s: float) -> ModelResponse:
         return ModelResponse(
