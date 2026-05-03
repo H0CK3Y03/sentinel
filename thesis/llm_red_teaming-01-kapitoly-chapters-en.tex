@@ -803,17 +803,13 @@ These signals support debugging, performance evaluation, and failure analysis du
 
 \chapter{Implementation}\label{ch:implementation}
 
-% This chapter contains many \texttt{}-set identifiers that LaTeX cannot
-% hyphenate; \sloppy widens the spacing tolerance to keep the right margin
-% straight without forcing manual line breaks.
-\sloppy
 
 This chapter walks through the actual implementation of the toolkit (named \emph{sentinel}) and explains the reasoning behind the engineering choices that shape it.
-The earlier chapter on design fixed the architecture; here we describe how that architecture is realised as a concrete Python package, how the modules are wired together, and how the runtime behaves under load.
+The earlier chapter on design described the architecture, here we describe how that architecture is realised as a concrete Python package, how the modules are wired together, and how the runtime behaves under load.
 
 The chapter follows the natural flow of an experiment: a user writes a manifest, the toolkit parses it, builds the configured components, runs them, and finally writes structured logs that downstream analysis can consume.
 The first section describes the project layout and the technology stack supporting it.
-Subsequent sections drill into the data model, the plugin system, the three component families (adapters, generators, judges), the orchestrator that drives them, the layered parallelism strategy, the multi-turn extension, and the logging and analysis pipeline.
+Subsequent sections drill into the data model, the plugin system, the three component layers (adapters, generators, judges), the orchestrator that drives them, the layered parallelism strategy, multi-turn handling, and the logging and analysis pipeline.
 The chapter closes with the command-line interface that ties everything together and a short note on the testing strategy.
 
 \section{Project Layout and Technology Stack}\label{sec:impl-layout}
@@ -824,7 +820,7 @@ Everything else lives in flat top-level modules: \texttt{models.py} for the shar
 
 \paragraph{Python and the standard library.}
 Python (version 3.10 or newer) was chosen as the primary language, in line with the design rationale in Chapter~\ref{ch:design}.
-Most of the toolkit is written using only the standard library; the small set of third-party dependencies is intentionally limited to \texttt{typer} for the CLI, \texttt{pyyaml} for the optional YAML manifest loader, and \texttt{httpx} as a single HTTP client used by every OpenAI-compatible component.
+Most of the toolkit is written using only the standard library, the small set of third-party dependencies is limited to \texttt{typer} for the CLI, \texttt{pyyaml} for the optional YAML manifest loader, and \texttt{httpx} as a single HTTP client used by every OpenAI-compatible component.
 Optional dependencies --- \texttt{llama-cpp-python} for local GGUF~\cite{gerganov2023gguf} inference and \texttt{pytest} / \texttt{pytest-asyncio} / \texttt{ruff} for the development setup --- are declared as extras in \texttt{pyproject.toml} so that the core package remains lightweight.
 
 \paragraph{Asynchronous orchestration.}
