@@ -839,7 +839,7 @@ This mechanism, described later in Section~\ref{sec:impl-plugin-discovery}, is t
 
 \section{Core Data Model}\label{sec:impl-data-model}
 
-Every component in the toolkit speaks the same handful of types, and almost all of them live in \texttt{models.py}.
+Every component in the toolkit uses the same handful of types, and almost all of them live in \texttt{models.py}.
 This deliberate centralisation is what makes adapters, generators, and judges interchangeable: as long as a component produces or consumes the canonical record, the orchestrator does not need to know how it does so internally.
 
 A \texttt{PromptCandidate} represents a single adversarial prompt produced by a generator.
@@ -851,7 +851,7 @@ Beyond text, tokens, and latency, it includes an \texttt{is\_error} flag (used b
 The same record also reserves space for white-box analytics --- token-level log-probabilities, perplexity, per-token entropy, and top-1 probabilities --- which the local llama.cpp adapter populates when its \texttt{inference\_mode} is set to \texttt{white\_box}.
 
 A \texttt{Verdict} represents one judge's classification of a response.
-It carries a list of labels (drawn from \texttt{refusal}, \texttt{compliance}, and \texttt{inconclusive}), a numeric \texttt{confidence}, a \texttt{judge\_weight} used during ensemble aggregation, the judge type (one of \texttt{HEURISTIC}, \texttt{CLASSIFIER}, \texttt{LLM}, or \texttt{ENSEMBLE}), and a free-text \texttt{explanation} that downstream tools can show to users.
+It carries a list of labels (drawn from \texttt{refusal}, \texttt{compliance}, and \texttt{inconclusive}), a numeric \texttt{confidence}, a \texttt{judge\_weight} used during ensemble aggregation, the judge type (f.e. \texttt{HEURISTIC}, \texttt{CLASSIFIER}, \texttt{LLM}, or \texttt{ENSEMBLE}), and a free-text \texttt{explanation} that downstream tools can show to users.
 The same record is used both for individual judge verdicts and for the ensemble verdict produced by the verdict-aggregation module described in Section~\ref{sec:impl-judges}.
 
 A \texttt{LogEvent} is the JSONL log's unit of record.
