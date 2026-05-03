@@ -939,17 +939,17 @@ The stub also doubles as a documentation aid because it is the smallest possible
 \paragraph{The OpenAI-compatible adapter.}
 \texttt{OpenAIApiAdapter} talks to any provider that speaks the OpenAI chat-completion protocol --- the official OpenAI endpoint, Azure OpenAI, vLLM servers, or the e-INFRA CZ Czech research cloud that the evaluation chapter relies on.
 A single \texttt{httpx.AsyncClient} is opened per request, the chat-completion payload is constructed from the manifest's system prompt, the user prompt, and the configured sampling parameters, and the response is normalised into a \texttt{ModelResponse}.
-API keys are resolved by a small helper that consults, in order, the manifest configuration, the \texttt{SENTINEL\_API\_KEY} environment variable, and finally \texttt{OPENAI\_API\_KEY}; this resolution chain (along with the JSON parsing of usage tokens, message text, and finish reasons) is shared across the adapter, the OpenAI-backed attack generator, and the LLM judge through a small \texttt{openai\_api\_utils} module, which keeps the three components consistent without coupling them to a common base class.
+API keys are resolved by a small helper that consults, in order, the manifest configuration, the \texttt{SENTINEL\_API\_KEY} environment variable, and finally \texttt{OPENAI\_API\_KEY}. This resolution chain (along with the JSON parsing of usage tokens, message text, and finish reasons) is shared across the adapter, the OpenAI-backed attack generator, and the LLM judge through a small \texttt{openai\_api\_utils} module, which keeps the three components consistent without coupling them to a common base class.
 Errors --- both HTTP-level and network-level --- are caught at the boundary and converted into \texttt{ModelResponse} objects with \texttt{is\_error=True}, so the orchestrator can record them in the JSONL log and continue with the remaining prompts instead of failing the whole batch.
 
 \paragraph{The local llama.cpp adapter.}
 \texttt{LlamaCppModelAdapter} wraps \texttt{llama-cpp-python}, the Python binding for the \texttt{llama.cpp} runtime.
 It is the implementation of the design chapter's promise of low-compute, laptop-first operation: with a quantised GGUF model file it runs entirely on CPU, and offloading any subset of layers to a GPU is a one-flag change in the manifest.
-The adapter exposes both \texttt{black\_box} and \texttt{white\_box} inference modes; the latter populates the white-box fields of \texttt{ModelResponse} by extracting the per-token log-probability content the runtime returns when \texttt{logprobs=True} is requested.
+The adapter exposes both \texttt{black\_box} and \texttt{white\_box} inference modes, the latter populates the white-box fields of \texttt{ModelResponse} by extracting the per-token log-probability content the runtime returns when \texttt{logprobs=True} is requested.
 From those raw values the adapter computes three derived quantities: sequence perplexity (the exponential of the negative mean log-likelihood), per-token Shannon entropy over the top-$k$ candidates, and the probability of the actually-sampled token at each position.
 These signals are persisted on every white-box trial and are intended to support gradient-free analyses of model uncertainty without forcing the rest of the toolkit to deal with logits.
 
-The adapter also supports two more advanced white-box capabilities.
+The adapter also supports two more white-box capabilities.
 A \texttt{logit\_bias\_tokens} configuration option lets the user push the model toward or away from specific token strings --- a large negative bias on phrases such as ``I cannot'' or ``I'm sorry'' suppresses the most common refusal openings.
 The configuration accepts string keys (which the adapter tokenises to per-token IDs at load time) and forwards them as a \texttt{logit\_bias} mapping on every generation call.
 A \texttt{lora\_path} option allows a separate LoRA adapter file to be loaded alongside the base model with a configurable scale, enabling researchers to evaluate fine-tuned or specialised checkpoints without rebuilding the base model.
