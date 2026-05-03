@@ -32,7 +32,7 @@ from sentinel.orchestrator_lifecycle import (
     configure_components,
     health_check_components,
 )
-from sentinel.orchestrator_runtime import RuntimeContext, run_combos
+from sentinel.orchestrator_runtime import ConversationCompleteCallback, RuntimeContext, run_combos
 from sentinel.plugins import create_adapter, create_generator, create_judge
 
 
@@ -100,6 +100,7 @@ class ExperimentSummary:
 # Type aliases for the live-panel callbacks the CLI hooks in.
 TrialCallback = Callable[[int, PromptCandidate, Optional[ModelResponse], Optional[Verdict]], None]
 StageCallback = Callable[[str], None]
+FollowupCallback = Callable[[str], None]
 
 
 class Orchestrator:
@@ -116,14 +117,18 @@ class Orchestrator:
         manifest: Manifest,
         on_trial_complete: Optional[TrialCallback] = None,
         on_generation_start: Optional[StageCallback] = None,
+        on_followup_start: Optional[FollowupCallback] = None,
         on_adapter_start: Optional[StageCallback] = None,
         on_judge_start: Optional[StageCallback] = None,
+        on_conversation_complete: Optional[ConversationCompleteCallback] = None,
     ) -> None:
         self.manifest = manifest
         self.on_trial_complete = on_trial_complete
         self.on_generation_start = on_generation_start
+        self.on_followup_start = on_followup_start
         self.on_adapter_start = on_adapter_start
         self.on_judge_start = on_judge_start
+        self.on_conversation_complete = on_conversation_complete
 
         # Shared component instances created from the manifest. ``build_combos``
         # may reuse them or create per-combo copies, depending on the manifest's
@@ -182,12 +187,13 @@ class Orchestrator:
             metrics_collector=self.metrics_collector,
             on_trial_complete=self.on_trial_complete,
             on_generation_start=self.on_generation_start,
+            on_followup_start=self.on_followup_start,
             on_adapter_start=self.on_adapter_start,
             on_judge_start=self.on_judge_start,
+            on_conversation_complete=self.on_conversation_complete,
         )
-        semaphore = asyncio.Semaphore(max(1, int(m.max_concurrency)))
         rate_limiter = RateLimiter(m.rate_limit_rps)
-        await run_combos(combos, runtime, semaphore, rate_limiter)
+        await run_combos(combos, runtime, rate_limiter)
 
         summary.elapsed_seconds = time.perf_counter() - t0
         await self._finalize_run(components, summary)

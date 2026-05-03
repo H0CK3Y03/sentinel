@@ -105,7 +105,11 @@ class StubAttackGenerator(AttackGenerator):
             prompts.append(
                 PromptCandidate(
                     text=text,
-                    metadata={"generator": self.name, "index": self._index},
+                    metadata={
+                        "generator": self.name,
+                        "display_name": self.get_display_name(),
+                        "index": self._index,
+                    },
                 )
             )
             self._index += 1

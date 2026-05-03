@@ -24,6 +24,8 @@ class LlamaCppAttackGenerator(AttackGenerator):
     -----------------------------------------
     model_path : str
         Path to the GGUF model file (required).
+    display_name : str
+        Panel label shown in the TUI (default "llama-cpp").
     system_prompt : str
         System prompt for the generator (optional).
     max_tokens : int
@@ -39,6 +41,8 @@ class LlamaCppAttackGenerator(AttackGenerator):
     verbose : bool
         Enable verbose logging (default False).
     """
+
+    display_name = "llama-cpp"
 
     def __init__(self, name: str = "llama-cpp-attacker") -> None:
         super().__init__(name=name)
@@ -67,6 +71,7 @@ class LlamaCppAttackGenerator(AttackGenerator):
             raise ValueError("llama-cpp generator requires 'model_path' in the config")
 
         self._model_path = Path(str(model_path_raw)).expanduser()
+        self.display_name = str(params.get("display_name", self.__class__.display_name))
         self._system_prompt = str(params.get("system_prompt", self._system_prompt))
         self._max_tokens = int(params.get("max_tokens", self._max_tokens))
         self._temperature = float(params.get("temperature", self._temperature))
@@ -111,6 +116,7 @@ class LlamaCppAttackGenerator(AttackGenerator):
                         text=f"[Error: {error_msg}]",
                         metadata={
                             "generator": self.name,
+                            "display_name": self.get_display_name(),
                             "error": error_msg,
                             "index": self._prompt_counter - 1,
                         },
@@ -137,6 +143,7 @@ class LlamaCppAttackGenerator(AttackGenerator):
                 # Extract structured data if available
                 metadata: Dict[str, Any] = {
                     "generator": self.name,
+                    "display_name": self.get_display_name(),
                     "index": self._prompt_counter,
                 }
 
@@ -191,3 +198,6 @@ class LlamaCppAttackGenerator(AttackGenerator):
     def reset(self) -> None:
         """Reset internal state for a fresh run."""
         self._prompt_counter = 0
+
+    def get_display_name(self):
+        return super().get_display_name()

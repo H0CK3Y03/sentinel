@@ -229,7 +229,7 @@ class OpenAIApiAttackGenerator(AttackGenerator):
         state = self._conversation_state[conv_id]
         state["target_responses"].append(response.text)
         state["turn"] += 1
-        state["history"].append(f"[Turn {state['turn'] - 1} — target]: {response.text[:300]}")
+        state["history"].append(f"[Turn {state['turn'] - 1} — target]: {response.text}")
 
     def get_next_turn(self, conversation_id: str) -> Optional[PromptCandidate]:
         """Generate the next adaptive attack turn, or None when done."""
@@ -250,7 +250,7 @@ class OpenAIApiAttackGenerator(AttackGenerator):
             system=_SYSTEM_FOLLOWUP.format(
                 goal=goal,
                 history=history_text,
-                last_response=last_response[:600],
+                last_response=last_response,
             ),
             user="Generate your next attack message now.",
             fallback=(

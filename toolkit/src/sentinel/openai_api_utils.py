@@ -111,5 +111,3 @@ def parse_verdict_text(raw: str) -> Tuple[str, float, str]:
         if re.search(rf"\b{label}\b", lower):
             return label, 0.5, text
     return "inconclusive", 0.0, text
-
-

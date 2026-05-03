@@ -34,6 +34,8 @@ from sentinel.verdict import aggregate_final_verdict
 # Type aliases mirror the ones the orchestrator advertises.
 TrialCallback = Callable[[int, PromptCandidate, Optional[ModelResponse], Optional[Verdict]], None]
 StageCallback = Callable[[str], None]
+FollowupCallback = Callable[[str], None]
+ConversationCompleteCallback = Callable[[str], None]
 
 
 @dataclass
@@ -46,8 +48,10 @@ class RuntimeContext:
     metrics_collector: MetricsCollector
     on_trial_complete: Optional[TrialCallback] = None
     on_generation_start: Optional[StageCallback] = None
+    on_followup_start: Optional[FollowupCallback] = None
     on_adapter_start: Optional[StageCallback] = None
     on_judge_start: Optional[StageCallback] = None
+    on_conversation_complete: Optional[ConversationCompleteCallback] = None
 
 
 @dataclass
@@ -238,6 +242,7 @@ async def _advance_multiturn_if_needed(
     outcome: _TrialOutcome,
     combo: Combo,
     ctx: RuntimeContext,
+    semaphore: asyncio.Semaphore,
     rate_limiter: RateLimiter,
     initial_verdict: str = "",
 ) -> None:
@@ -269,24 +274,28 @@ async def _advance_multiturn_if_needed(
         )
         return
 
-    for _ in range(m.max_turns_per_conversation):
-        if ctx.on_generation_start:
-            ctx.on_generation_start(combo.generator.get_display_name())
-        next_turn_prompt = combo.generator.get_next_turn(conversation_id)
-        if next_turn_prompt is None:
-            _log_conversation_complete(
-                ctx, conversation_id, total_turns=turns_executed, stop_reason="natural_end"
-            )
-            return
+    for i in range(m.max_turns_per_conversation):
+        # The semaphore wraps the whole turn — generation + adapter + judge — so
+        # that the combined generator+responder count never exceeds max_concurrency.
+        async with semaphore:
+            if ctx.on_followup_start:
+                ctx.on_followup_start(combo.generator.get_display_name())
 
-        next_outcome = await execute_prompt(
-            combo.adapter,
-            next_turn_prompt,
-            m.experiment_id,
-            rate_limiter,
-            judges=combo.judges,
-            ctx=ctx,
-        )
+            next_turn_prompt = await asyncio.to_thread(combo.generator.get_next_turn, conversation_id)
+            if next_turn_prompt is None:
+                _log_conversation_complete(
+                    ctx, conversation_id, total_turns=turns_executed, stop_reason="natural_end"
+                )
+                return
+
+            next_outcome = await execute_prompt(
+                combo.adapter,
+                next_turn_prompt,
+                m.experiment_id,
+                rate_limiter,
+                judges=combo.judges,
+                ctx=ctx,
+            )
         verdict_label = _process_outcome(next_outcome, combo, ctx)
         turns_executed += 1
 
@@ -321,6 +330,8 @@ def _log_conversation_complete(
             },
         )
     )
+    if ctx.on_conversation_complete:
+        ctx.on_conversation_complete(conversation_id)
 
 
 # ---------------------------------------------------------------------------
@@ -334,8 +345,13 @@ async def _run_prompts(
     semaphore: asyncio.Semaphore,
     rate_limiter: RateLimiter,
     advance_multiturn: bool,
-) -> None:
-    """Execute a batch of prompts concurrently and process their outcomes."""
+) -> List["asyncio.Task[None]"]:
+    """Execute a batch of prompts concurrently and return scheduled multi-turn tasks.
+
+    Each conversation's multi-turn task is scheduled the moment its initial
+    prompt completes, so slow or erroring prompts cannot block other
+    conversations from flushing their results.
+    """
 
     async def run_limited(prompt: PromptCandidate) -> _TrialOutcome:
         async with semaphore:
@@ -348,15 +364,20 @@ async def _run_prompts(
                 ctx=ctx,
             )
 
-    outcomes = await asyncio.gather(
-        *(asyncio.create_task(run_limited(prompt)) for prompt in prompts)
-    )
-    for outcome in outcomes:
+    tasks = [asyncio.create_task(run_limited(prompt)) for prompt in prompts]
+    multiturn_tasks: List[asyncio.Task] = []
+
+    # Schedule each conversation's multi-turn task as soon as its initial
+    # prompt arrives so the TUI stays responsive and no prompt blocks others.
+    for fut in asyncio.as_completed(tasks):
+        outcome = await fut
         initial_verdict = _process_outcome(outcome, combo, ctx)
         if advance_multiturn:
-            await _advance_multiturn_if_needed(
-                outcome, combo, ctx, rate_limiter, initial_verdict
-            )
+            multiturn_tasks.append(asyncio.create_task(
+                _advance_multiturn_if_needed(outcome, combo, ctx, semaphore, rate_limiter, initial_verdict)
+            ))
+
+    return multiturn_tasks
 
 
 async def _run_combo_batch(
@@ -365,13 +386,19 @@ async def _run_combo_batch(
     semaphore: asyncio.Semaphore,
     rate_limiter: RateLimiter,
 ) -> None:
+    all_multiturn: List[asyncio.Task] = []
     for _ in range(ctx.manifest.num_batches):
         if ctx.on_generation_start:
             ctx.on_generation_start(combo.generator.get_display_name())
         prompts = await asyncio.to_thread(combo.generator.next, ctx.manifest.batch_size)
-        await _run_prompts(
+        # _run_prompts schedules multi-turn tasks as each initial prompt
+        # completes, so they run in the background during the next batch.
+        mt_tasks = await _run_prompts(
             prompts, combo, ctx, semaphore, rate_limiter, advance_multiturn=True
         )
+        all_multiturn.extend(mt_tasks)
+    if all_multiturn:
+        await asyncio.gather(*all_multiturn)
 
 
 async def _run_combo_streaming(
@@ -447,14 +474,18 @@ def _log_streaming_disabled(combo: Combo, ctx: RuntimeContext) -> None:
 async def run_combos(
     combos: List[Combo],
     ctx: RuntimeContext,
-    semaphore: asyncio.Semaphore,
     rate_limiter: RateLimiter,
 ) -> None:
-    """Run all combos with bounded combo-level parallelism."""
+    """Run all combos with bounded combo-level parallelism.
+
+    Each combo gets its own prompt semaphore so one combo never starves another
+    while waiting for concurrency slots.
+    """
     combo_semaphore = asyncio.Semaphore(max(1, int(ctx.manifest.max_combo_concurrency)))
 
     async def run_limited(combo: Combo) -> None:
         async with combo_semaphore:
-            await run_combo(combo, ctx, semaphore, rate_limiter)
+            per_combo_semaphore = asyncio.Semaphore(max(1, int(ctx.manifest.max_concurrency)))
+            await run_combo(combo, ctx, per_combo_semaphore, rate_limiter)
 
     await asyncio.gather(*(run_limited(combo) for combo in combos))

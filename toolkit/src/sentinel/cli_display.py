@@ -145,28 +145,64 @@ class LivePanel:
     _STAGE_LABELS        = ("generating", "responding", "judging")
     _STAGE_HEADER_LABELS = ("generator",  "adapter",    "judge")
     _STAGE_COLORS        = (typer.colors.YELLOW, typer.colors.CYAN, typer.colors.MAGENTA)
-    _COL_NAME  = 14
-    _COL_STAGE = 16
+    _COL_NAME    = 14
+    _COL_STAGE   = 16
+    _COL_BATCHES =  7   # "batches" header; values like "1/2"
+    _COL_PROMPTS =  7   # "prompts" header; values like "8/16"
 
-    def __init__(self, slot_names: List[str]) -> None:
+    def __init__(
+        self,
+        slot_names: List[str],
+        num_batches: int = 0,
+        prompts_total: int = 0,
+    ) -> None:
         self._names = slot_names
         # [gen_count, resp_count, judge_count] per slot name
         self._state: Dict[str, List[int]] = {n: [0, 0, 0] for n in slot_names}
         # stages that have been active (count > 0) in the current batch
         self._ever_active: Dict[str, set[int]] = {n: set() for n in slot_names}
-        # stages currently showing "done" (were active, count fell to 0)
+        # stages currently showing "idle" (were active, count fell to 0)
         self._done_stages: Dict[str, set[int]] = {n: set() for n in slot_names}
         self._done: set[str] = set()
         self._initialized = False
+        # progress tracking
+        self._num_batches   = num_batches
+        self._prompts_total = prompts_total
+        self._batches_started: Dict[str, int] = {n: 0 for n in slot_names}
+        self._convs_done:      Dict[str, int] = {n: 0 for n in slot_names}
 
     # -- stage transitions ---------------------------------------------------
 
     def generation_start(self, name: str) -> None:
-        # New batch starts — reset per-stage done state for this slot.
-        if name in self._done_stages:
-            self._done_stages[name].clear()
-            self._ever_active[name].clear()
+        """Batch-level generation start: reset all per-batch state."""
+        if name not in self._state:
+            return
+        self._done_stages[name].clear()
+        self._ever_active[name].clear()
+        if self._num_batches > 0:
+            self._batches_started[name] = min(
+                self._batches_started.get(name, 0) + 1, self._num_batches
+            )
         self._inc(name, self._GEN, +1)
+
+    def followup_start(self, name: str) -> None:
+        """Follow-up turn generation start: increment GEN so parallel calls show their count."""
+        if name not in self._state:
+            return
+        self._inc(name, self._GEN, +1)
+
+    def followup_cancel(self, name: str) -> None:
+        """Called when get_next_turn returns None: undo the followup_start increment."""
+        if name not in self._state:
+            return
+        if self._state[name][self._GEN] > 0:
+            self._inc(name, self._GEN, -1)
+
+    def conversation_done(self, name: str) -> None:
+        """Increment the completed-conversations counter for a slot (turn-0 only)."""
+        if name in self._convs_done and self._prompts_total > 0:
+            self._convs_done[name] = min(self._convs_done[name] + 1, self._prompts_total)
+            self._redraw()
 
     def adapter_start(self, name: str) -> None:
         self._inc(name, self._GEN, -1)
@@ -201,12 +237,26 @@ class LivePanel:
     # -- rendering -----------------------------------------------------------
 
     def _render_stage(self, label: str, count: int, color: str, is_done: bool = False) -> str:
-        if is_done:
-            return typer.style(f"{'done':<{self._COL_STAGE}}", fg=typer.colors.GREEN)
         if count == 0:
-            return typer.style(f"{'--':<{self._COL_STAGE}}", fg=typer.colors.BRIGHT_BLACK)
+            return typer.style(f"{'idle':<{self._COL_STAGE}}", fg=typer.colors.GREEN)
         suffix = f"({count})" if count > 1 else "..."
         return typer.style(f"{label + suffix:<{self._COL_STAGE}}", fg=color)
+
+    def _render_batches(self, name: str) -> str:
+        if self._num_batches <= 0:
+            val = "--"
+        else:
+            b = self._batches_started.get(name, 0)
+            val = f"{b}/{self._num_batches}"
+        return typer.style(f"{val:>{self._COL_BATCHES}}", fg=typer.colors.BRIGHT_BLACK)
+
+    def _render_prompts(self, name: str) -> str:
+        if self._prompts_total <= 0:
+            val = "--"
+        else:
+            p = self._convs_done.get(name, 0)
+            val = f"{p}/{self._prompts_total}"
+        return typer.style(f"{val:>{self._COL_PROMPTS}}", fg=typer.colors.BRIGHT_BLACK)
 
     def _render_row(self, name: str) -> str:
         name_col = typer.style(f"{name:<{self._COL_NAME}}", fg=typer.colors.BRIGHT_BLACK)
@@ -219,7 +269,12 @@ class LivePanel:
             self._render_stage(lbl, s[i], col, i in done_s)
             for i, (lbl, col) in enumerate(zip(self._STAGE_LABELS, self._STAGE_COLORS))
         )
-        return f"  {name_col}  {stages}"
+        progress = (
+            f"  {self._render_batches(name)}"
+            f"  {self._render_prompts(name)}"
+            if self._num_batches > 0 else ""
+        )
+        return f"  {name_col}  {stages}{progress}"
 
     def _panel_height(self) -> int:
         """Total lines occupied by the panel (header + separator + generator rows)."""
@@ -227,16 +282,28 @@ class LivePanel:
 
     def draw_panel(self) -> None:
         """Public draw: write the full panel at the current cursor position."""
+        dim = typer.colors.BRIGHT_BLACK
+        if self._num_batches > 0:
+            h_bat = typer.style(f"{'batches':>{self._COL_BATCHES}}", fg=dim)
+            h_pro = typer.style(f"{'prompts':>{self._COL_PROMPTS}}", fg=dim)
+            progress_cols = f"  {h_bat}  {h_pro}"
+        else:
+            progress_cols = ""
         header = (
             "  "
-            + typer.style(f"{'name':<{self._COL_NAME}}", fg=typer.colors.BRIGHT_BLACK)
+            + typer.style(f"{'name':<{self._COL_NAME}}", fg=dim)
             + "  "
             + "  ".join(
                 typer.style(f"{lbl:<{self._COL_STAGE}}", fg=col)
                 for lbl, col in zip(self._STAGE_HEADER_LABELS, self._STAGE_COLORS)
             )
+            + progress_cols
         )
-        sep_len = self._COL_NAME + 2 + (self._COL_STAGE + 2) * 3 - 2
+        sep_len = (
+            self._COL_NAME + 2 + (self._COL_STAGE + 2) * 3 - 2
+            + (2 + self._COL_BATCHES + 2 + self._COL_PROMPTS
+               if self._num_batches > 0 else 0)
+        )
         separator = typer.style("  " + "─" * sep_len, fg=typer.colors.BRIGHT_BLACK)
         sys.stdout.write(f"\r\033[K{header}\n")
         sys.stdout.write(f"\r\033[K{separator}\n")
@@ -259,6 +326,18 @@ class LivePanel:
         sys.stdout.write(f"\r\033[K{line}\n")
         if detail:
             sys.stdout.write(f"\r\033[K{detail}\n")
+        self.draw_panel()
+
+    def print_conversation(self, lines: List[Tuple[str, Optional[str]]]) -> None:
+        """Insert multiple result lines above the panel at once, then redraw."""
+        if not lines:
+            return
+        if self._initialized:
+            sys.stdout.write(f"\033[{self._panel_height()}F")
+        for line, detail in lines:
+            sys.stdout.write(f"\r\033[K{line}\n")
+            if detail:
+                sys.stdout.write(f"\r\033[K{detail}\n")
         self.draw_panel()
 
     def finalize(self) -> None:
@@ -320,20 +399,65 @@ def _format_trial_line(
     )
 
 
-# Callback bundle returned by ``make_run_callbacks``.
-RunCallbacks = Tuple[Callable, Callable, Callable, Callable, Callable]
+def _format_followup_line(
+    turn: int,
+    prompt: PromptCandidate,
+    response: Optional[ModelResponse],
+    verdict: Optional[Verdict],
+) -> str:
+    """Format a follow-up turn result line (indented with ↳ bracket)."""
+    label = verdict_label(verdict)
+    color = verdict_color(label)
+    latency = f"{response.latency_ms:.0f}ms" if response and not response.is_error else "—"
+    tokens  = f"{response.tokens}tok"         if response and not response.is_error else ""
+    conf_str = f"({verdict.confidence:.0%})" if verdict else ""
+    attack = prompt.metadata.get("display_name") or prompt.metadata.get("attack_type", "")
+    attack = attack[:_COL_ATTACK]
+
+    preview_len = 52
+    raw_preview = prompt.text.replace("\n", " ")
+    preview = (raw_preview[:preview_len] + "…") if len(prompt.text) > preview_len else raw_preview
+
+    bracket = f"[{'↳ ' + str(turn):>9}] "
+    return (
+        f"  {bracket}"
+        + typer.style(f"{label:<{_COL_VERDICT}}", fg=color, bold=True)
+        + f" {conf_str:<{_COL_CONF}}"
+        + f"  {latency:>{_COL_LATENCY}}"
+        + f"  {tokens:<{_COL_TOKENS}}"
+        + f"  {attack:<{_COL_ATTACK}}"
+        + f"  {preview}"
+    )
 
 
-def make_run_callbacks(total_expected: int, generator_names: List[str]) -> RunCallbacks:
+# Callback bundle returned by ``make_run_callbacks``:
+# (on_trial_complete, on_generation_start, on_followup_start, on_adapter_start,
+#  on_judge_start, on_conversation_complete, finalize)
+RunCallbacks = Tuple[Callable, Callable, Callable, Callable, Callable, Callable, Callable]
+
+
+def make_run_callbacks(
+    total_expected: int,
+    generator_names: List[str],
+    batch_size: int = 0,
+    num_batches: int = 0,
+) -> RunCallbacks:
     """Build the orchestrator callbacks that drive the live panel + trial lines.
 
-    Returns ``(on_trial_complete, on_gen_start, on_adp_start, on_jdg_start, finalize)``.
+    Returns ``(on_trial_complete, on_gen_start, on_fol_start, on_adp_start,
+    on_jdg_start, on_conv_complete, finalize)``.
     """
     print_trial_header()
-    panel = LivePanel(generator_names)
+    panel = LivePanel(
+        generator_names,
+        num_batches=num_batches,
+        prompts_total=batch_size * num_batches,
+    )
     panel.draw_panel()  # show initial idle panel right after the header
 
-    conv_counter = 0  # incremented once per conversation (turn == 0 only)
+    conv_counter = 0  # incremented once per completed conversation
+    # conv_id -> {"name": str, "turns": [(turn_num, prompt, response, verdict), ...]}
+    _conv_buffer: Dict[str, Dict] = {}
 
     def on_trial_complete(
         trial_num: int,
@@ -344,19 +468,33 @@ def make_run_callbacks(total_expected: int, generator_names: List[str]) -> RunCa
         nonlocal conv_counter
         name = prompt.metadata.get("display_name", "")
         panel.trial_done(name)
+        turn = prompt.metadata.get("turn", 0)
+        conv_id = prompt.metadata.get("conversation_id", "")
 
-        # Follow-up turns of a multi-turn conversation update stage counts but
-        # don't print their own line.
-        if prompt.metadata.get("turn", 0) > 0:
+        if conv_id:
+            # Buffer all turns; flush atomically in on_conversation_complete.
+            if conv_id not in _conv_buffer:
+                _conv_buffer[conv_id] = {"name": name, "turns": []}
+            _conv_buffer[conv_id]["turns"].append((turn, prompt, response, verdict))
             return
 
-        conv_counter += 1
-        line = _format_trial_line(conv_counter, total_expected, prompt, response, verdict)
-        detail = _format_error_detail(response) if verdict is None else None
-        panel.print_trial(line, detail=detail)
+        # No conversation_id (e.g. template generator): print immediately.
+        if turn > 0:
+            line = _format_followup_line(turn, prompt, response, verdict)
+            detail = _format_error_detail(response) if verdict is None else None
+            panel.print_trial(line, detail=detail)
+        else:
+            conv_counter += 1
+            panel.conversation_done(name)
+            line = _format_trial_line(conv_counter, total_expected, prompt, response, verdict)
+            detail = _format_error_detail(response) if verdict is None else None
+            panel.print_trial(line, detail=detail)
 
     def on_generation_start(name: str) -> None:
         panel.generation_start(name)
+
+    def on_followup_start(name: str) -> None:
+        panel.followup_start(name)
 
     def on_adapter_start(name: str) -> None:
         panel.adapter_start(name)
@@ -364,10 +502,44 @@ def make_run_callbacks(total_expected: int, generator_names: List[str]) -> RunCa
     def on_judge_start(name: str) -> None:
         panel.judge_start(name)
 
+    def on_conversation_complete(conv_id: str) -> None:
+        nonlocal conv_counter
+        if conv_id not in _conv_buffer:
+            return
+        buf = _conv_buffer.pop(conv_id)
+        name = buf["name"]
+        turns = sorted(buf["turns"], key=lambda t: t[0])
+
+        # Revert any premature followup_start that fired before get_next_turn returned None.
+        panel.followup_cancel(name)
+
+        conv_counter += 1
+        panel.conversation_done(name)
+
+        lines: List[Tuple[str, Optional[str]]] = []
+        for seq_idx, (turn_num, prompt, response, verdict) in enumerate(turns):
+            if seq_idx == 0:
+                line = _format_trial_line(conv_counter, total_expected, prompt, response, verdict)
+            else:
+                # seq_idx+1 so labels run 2,3,4… matching total turn count in the conversation.
+                line = _format_followup_line(seq_idx + 1, prompt, response, verdict)
+            detail = _format_error_detail(response) if verdict is None else None
+            lines.append((line, detail))
+
+        panel.print_conversation(lines)
+
+    def finalize() -> None:
+        # Flush any conversations that never received an on_conversation_complete signal.
+        for conv_id in list(_conv_buffer.keys()):
+            on_conversation_complete(conv_id)
+        panel.finalize()
+
     return (
         on_trial_complete,
         on_generation_start,
+        on_followup_start,
         on_adapter_start,
         on_judge_start,
-        panel.finalize,
+        on_conversation_complete,
+        finalize,
     )

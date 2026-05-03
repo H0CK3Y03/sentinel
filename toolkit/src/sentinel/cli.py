@@ -76,15 +76,17 @@ def run(
             create_generator(g.name).get_display_name()
             for g in manifest.generators
         ]
-        on_trial, on_gen, on_adp, on_jdg, finalize = make_run_callbacks(
-            total_expected, gen_names
+        on_trial, on_gen, on_fol, on_adp, on_jdg, on_conv, finalize = make_run_callbacks(
+            total_expected, gen_names, manifest.batch_size, manifest.num_batches
         )
         orch = Orchestrator(
             manifest,
             on_trial_complete=on_trial,
             on_generation_start=on_gen,
+            on_followup_start=on_fol,
             on_adapter_start=on_adp,
             on_judge_start=on_jdg,
+            on_conversation_complete=on_conv,
         )
 
     summary = asyncio.run(orch.run())

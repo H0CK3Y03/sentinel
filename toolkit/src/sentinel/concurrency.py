@@ -30,8 +30,11 @@ class RateLimiter:
         loop = asyncio.get_running_loop()
         async with self._lock:
             now = loop.time()
-            if self._next_allowed_at > now:
-                await asyncio.sleep(self._next_allowed_at - now)
-                now = loop.time()
+            my_slot = max(self._next_allowed_at, now)
+            self._next_allowed_at = my_slot + self._interval
 
-            self._next_allowed_at = max(self._next_allowed_at, now) + self._interval
+        # Sleep outside the lock so concurrent callers can claim their slots
+        # without waiting for the previous caller's sleep to finish.
+        sleep_time = my_slot - loop.time()
+        if sleep_time > 0:
+            await asyncio.sleep(sleep_time)
