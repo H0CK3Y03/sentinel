@@ -978,16 +978,16 @@ class AttackGenerator(ABC):
 The implementation ships eight generators that span the attack taxonomy of Chapter~\ref{ch:red-teaming}.
 Six of them are stateless template-based attackers --- \texttt{single-turn-jailbreak}, \texttt{prompt-injection}, \texttt{token-perturbation}, \texttt{universal-trigger}, \texttt{obfuscation}, and the legacy \texttt{stub-template} --- that draw a goal and a template (or trigger, base prompt, or technique) from a curated bank, format them together, and emit the result.
 Each generator exposes the bank as a configuration option so that experiments can swap in custom prompt libraries without changing code.
-A deterministic seed produces a deterministic sequence of attacks; this property is essential for reproducible evaluation and is verified by tests in \texttt{tests/test\_openai\_api\_generator.py}.
+A deterministic seed produces a deterministic sequence of attacks, this property is essential for reproducible evaluation and is verified by tests in \texttt{tests/test\_openai\_api\_generator.py}.
 
 The two more interesting generators, \texttt{multi-turn-conversation} and the LLM-driven \texttt{openai-api-attacker} (with its local twin \texttt{llama-cpp-attacker}), are stateful.
-The multi-turn generator draws from six pre-authored conversational flows --- \emph{gradual\_escalation}, \emph{hypothetical\_framing}, \emph{context\_switching}, \emph{roleplay\_progression}, \emph{normalisation}, and \emph{refusal\_erosion} --- each defined as an ordered list of prompts that gradually steer the model toward harmful output.
+The multi-turn generator draws from six flows --- \emph{gradual\_escalation}, \emph{hypothetical\_framing}, \emph{context\_switching}, \emph{roleplay\_progression}, \emph{normalisation}, and \emph{refusal\_erosion} --- each defined as an ordered list of prompts that gradually steer the model toward harmful output.
 The LLM-driven generator instead asks a separate ``red'' LLM to author the attack on the fly, with a system prompt that lists the rotation of techniques (roleplay framing, authority impersonation, encoding tricks, persona jailbreaks, and so on) and instructs the red LLM to pick whichever feels most promising for the current goal.
 In multi-turn mode it consumes the target's most recent response and crafts the next move adaptively, keyed on whether the target refused, partially complied, deflected, or fully complied.
 
 Both stateful generators report \texttt{supports\_streaming() = False} so that the orchestrator's streaming pipeline (Section~\ref{sec:impl-parallelism}) does not try to overlap their next-batch generation with the previous batch's execution: their next prompt depends on the previous response, so the prefetch optimisation would be incorrect.
-They also expose \texttt{get\_next\_turn(conversation\_id)}, which the orchestrator polls to advance an open conversation through additional turns within the same outer batch.
-Conversation state lives on the generator itself, keyed by a UUID-derived \texttt{conversation\_id} that is stamped into every \texttt{PromptCandidate}'s metadata; this makes it possible to interleave many conversations through the same generator without their states colliding.
+They also expose the function \texttt{get\_next\_turn(conversation\_id)}, which the orchestrator polls to advance an open conversation through additional turns within the same outer batch.
+Conversation state lives on the generator itself, keyed by a UUID-derived \texttt{conversation\_id} that is stamped into every \texttt{PromptCandidate}'s metadata. This makes it possible to interleave many conversations through the same generator without their states colliding.
 
 \section{Judges and Verdict Aggregation}\label{sec:impl-judges}
 
