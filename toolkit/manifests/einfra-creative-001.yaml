@@ -36,6 +36,15 @@ generators:
       max_turns: 4                # 4-turn adaptive conversations
       seed: 42
 
+  # - name: llama-cpp-attacker
+  #   config:
+  #     model_path: /home/hockey/models/Qwen2.5-7B-Instruct-GGUF/qwen2.5-7b-instruct-q3_k_m.gguf
+  #     max_tokens: 512
+  #     temperature: 0.9
+  #     max_turns: 4
+
+  # - name: stub-template
+
   # Secondary: static obfuscation as a baseline / comparison set.
   # Tests encoding tricks (base64, ROT13, XML injection, homoglyphs, etc.)
   # that the LLM attacker may also discover independently.
@@ -56,6 +65,7 @@ judges:
     config:
       base_url: "https://llm.ai.e-infra.cz/v1"
       model: "deepseek-v3.2"
+      weight: 100.0
       max_tokens: 256
       temperature: 0.0
 
@@ -63,9 +73,9 @@ judges:
 # Experiment settings
 # ---------------------------------------------------------------------------
 seed: 42
-batch_size: 3
+batch_size: 8
 num_batches: 2
-max_concurrency: 2
+max_concurrency: 3
 max_combo_concurrency: 2
 
 # Conservative rate limit: each trial touches the API twice (target + judge),

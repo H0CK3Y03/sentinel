@@ -36,19 +36,15 @@ def aggregate_final_verdict(
             if label in vote_counts:
                 vote_counts[label] += w
 
-    winning_label, winning_weight = _pick_winner(vote_counts, has_verdicts=bool(verdicts))
+    winning_label, winning_weight = _pick_winner(vote_counts)
 
-    if verdicts:
-        total_weight = sum(v.judge_weight for v in verdicts)
-        avg_confidence = (
-            sum(v.confidence * v.judge_weight for v in verdicts) / total_weight
-            if total_weight > 0 else 0.0
-        )
-        total_vote_weight = sum(vote_counts.values())
-        agreement = winning_weight / total_vote_weight if total_vote_weight > 0 else 0.0
-    else:
-        avg_confidence = 0.0
-        agreement = 0.0
+    total_weight = sum(v.judge_weight for v in verdicts)
+    avg_confidence = (
+        sum(v.confidence * v.judge_weight for v in verdicts) / total_weight
+        if total_weight > 0 else 0.0
+    )
+    total_vote_weight = sum(vote_counts.values())
+    agreement = winning_weight / total_vote_weight if total_vote_weight > 0 else 0.0
 
     explanation = (
         f"Final verdict by weighted vote: {winning_label} "
@@ -70,16 +66,12 @@ def aggregate_final_verdict(
     )
 
 
-def _pick_winner(vote_counts: Dict[str, float], has_verdicts: bool) -> tuple[str, float]:
+def _pick_winner(vote_counts: Dict[str, float]) -> tuple[str, float]:
     """Return ``(label, vote_weight)`` for the dominant label.
 
-    With no judges, defaults to ``inconclusive`` with zero weight. With a
-    tie between multiple labels, also defaults to ``inconclusive`` and
-    reports its own weight.
+    With a tie between multiple labels (including the all-zero case when no
+    verdicts were provided), defaults to ``inconclusive`` with its own weight.
     """
-    if not has_verdicts:
-        return "inconclusive", 0.0
-
     max_votes = max(vote_counts.values())
     winners = [label for label, votes in vote_counts.items() if votes == max_votes]
     if len(winners) == 1:
