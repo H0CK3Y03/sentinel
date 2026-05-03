@@ -34,8 +34,8 @@ from sentinel.model_adapters.stub import StubAdapter
 # without the llama-cpp dependency installed.
 try:
     from sentinel.generators.minimal_attack import MinimalAttackGenerator
-except ImportError:  # pragma: no cover - optional dependency
-    MinimalAttackGenerator = None  # type: ignore[assignment]
+except ImportError:
+    MinimalAttackGenerator = None
 
 try:
     from sentinel.judges.llama_cpp import LlamaCppJudge
