@@ -33,6 +33,11 @@ from sentinel.model_adapters.stub import StubAdapter
 # Optional integrations: imported defensively so the package still works
 # without the llama-cpp dependency installed.
 try:
+    from sentinel.generators.minimal_attack import MinimalAttackGenerator
+except ImportError:  # pragma: no cover - optional dependency
+    MinimalAttackGenerator = None  # type: ignore[assignment]
+
+try:
     from sentinel.judges.llama_cpp import LlamaCppJudge
 except ImportError:  # pragma: no cover - optional dependency
     LlamaCppJudge = None  # type: ignore[assignment]
@@ -129,6 +134,8 @@ _GENERATORS: _Registry[AttackGenerator] = _Registry(
         "openai-api-attacker": OpenAIApiAttackGenerator,
     },
 )
+if MinimalAttackGenerator is not None:
+    _GENERATORS.register("minimal-attack", MinimalAttackGenerator)
 if LlamaCppAttackGenerator is not None:
     _GENERATORS.register("llama-cpp-attacker", LlamaCppAttackGenerator)
 

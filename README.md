@@ -46,6 +46,7 @@ sentinel list-plugins
 | Generator | Type | Use Case |
 |-----------|------|----------|
 | `single-turn-jailbreak` | Jailbreak | One-shot prompt engineering attacks |
+| `minimal-attack` | Baseline | One fixed prompt for smoke tests |
 | `prompt-injection` | Injection | User-input override attacks |
 | `token-perturbation` | Evasion | Adversarial token modifications |
 | `universal-trigger` | Trigger | Transferable attack tokens |
@@ -116,6 +117,56 @@ register_adapter("my-adapter", MyAdapter)
 ```
 
 Then reference `adapters:` in your manifest and add `adapter: my-adapter` inside the entry.
+
+## Writing a custom generator
+
+Subclass `AttackGenerator` and implement the three required methods:
+
+```python
+from typing import Any, Dict, List
+from sentinel.generators.base import AttackGenerator
+from sentinel.models import PromptCandidate
+
+class MyGenerator(AttackGenerator):
+    display_name = "my-generator"
+
+    def configure(self, params: Dict[str, Any]) -> None:
+        # store any manifest config params here
+        self._configured = True
+
+    def next(self, batch_size: int = 1) -> List[PromptCandidate]:
+        return [
+            PromptCandidate(text="my adversarial prompt", metadata={"generator": self.name})
+            for _ in range(batch_size)
+        ]
+
+    def reset(self) -> None:
+        pass  # reset counters / caches if needed
+```
+
+Register it at runtime:
+
+```python
+from sentinel.plugins import register_generator
+register_generator("my-generator", MyGenerator)
+```
+
+Or advertise it as a Python entry-point in `pyproject.toml` so it is discovered automatically without code changes:
+
+```toml
+[project.entry-points."sentinel.generators"]
+my-generator = "my_package.my_module:MyGenerator"
+```
+
+Then reference it in your manifest:
+
+```yaml
+generators:
+  - instance_id: generator-custom
+    name: my-generator
+    config:
+      seed: 42
+```
 
 ## Local llama.cpp judge
 
