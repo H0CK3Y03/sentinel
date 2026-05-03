@@ -902,8 +902,8 @@ The plugin system in \texttt{plugins.py} answers a single question for the orche
 Three registries --- for adapters, generators, and judges --- share a common \texttt{\_Registry} helper that combines a built-in dictionary with lazy entry-point discovery.
 Built-in components (the stub implementations, the OpenAI-compatible client, the heuristic judge, and so on) are added in module-level code; third-party plugins advertise themselves via the entry-point groups declared in \texttt{pyproject.toml} and are picked up through Python's standard \texttt{importlib.metadata} API.
 
-Component construction happens through three small factories, \texttt{create\_adapter}, \texttt{create\_generator}, and \texttt{create\_judge}, that look the class up by name, instantiate it, and stamp it with the requested \texttt{instance\_id}.
-The factories deliberately do not call \texttt{configure}; that is the orchestrator's responsibility and is performed once per unique component instance during the configuration phase, with the manifest's seed merged into the configuration dictionary.
+Component construction happens through three small factories, \texttt{create\_adapter},\newline \texttt{create\_generator}, and \texttt{create\_judge}, that look the class up by name, instantiate it, and stamp it with the requested \texttt{instance\_id}.
+The factories deliberately do not call \texttt{configure}, that is the orchestrator's responsibility and is performed once per unique component instance during the configuration phase, with the manifest's seed merged into the configuration dictionary.
 
 Optional integrations (the local llama.cpp adapter, generator, and judge) are imported defensively: the import is wrapped in a \texttt{try}/\texttt{except ImportError}, and the corresponding registry entry is only added when the import succeeds.
 This is what allows the toolkit to be installed without \texttt{llama-cpp-python} on machines that only need the API-based path.
