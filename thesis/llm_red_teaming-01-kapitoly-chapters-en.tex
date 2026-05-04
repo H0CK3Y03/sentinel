@@ -1131,7 +1131,7 @@ The default of zero disables rate limiting entirely so that local backends do no
 \section{Multi-Turn Conversations}\label{sec:impl-multiturn}
 
 Multi-turn conversations are the most subtle part of the runtime because they break the otherwise clean ``one prompt, one trial, done'' cycle.
-The orchestrator's solution is to advance an open conversation \emph{within} the trial that started it, rather than waiting for the next outer batch to surface the next turn.
+The orchestrator's solution is to advance an open conversation within the trial that started it, rather than waiting for the next outer batch to surface the next turn.
 
 When a generator returns a prompt whose metadata contains a \texttt{conversation\_id} and the generator exposes \texttt{get\_next\_turn}, the runtime calls \texttt{\_advance\_multiturn\_if\_needed} after the initial trial completes.
 That helper repeatedly polls the generator for the next turn, executes it through the same \texttt{execute\_prompt} pipeline as the initial prompt, and processes its outcome with the standard bookkeeping.
@@ -1142,7 +1142,8 @@ Figure~\ref{fig:impl-multiturn} traces a three-turn example through the swimlane
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{obrazky-figures/impl-multiturn-timeline.pdf}
-  \caption{Multi-turn conversation timeline. The generator produces an initial prompt, the orchestrator drives it through the adapter and judges, then calls \texttt{update()} on the generator and asks for the next turn. The loop continues until one of three exit conditions fires; each exit writes a structured \texttt{stop\_reason} into the JSONL log.}
+  \caption{Multi-turn conversation timeline. The generator produces an initial prompt, the orchestrator drives it through the adapter and judges, then calls \texttt{update()} on the generator and asks for the next turn. The loop continues until one of three exit conditions fires.
+  Each exit writes a structured \texttt{stop\_reason} into the JSONL log.}
   \label{fig:impl-multiturn}
 \end{figure}
 
