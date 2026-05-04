@@ -1191,7 +1191,12 @@ The same code paths that the orchestrator uses are reused --- there is no shadow
 \section{Testing Strategy}\label{sec:impl-testing}
 
 The toolkit includes 71 tests in \texttt{tests/} that exercise every layer of the implementation.
-Concurrency tests verify that the rate limiter respects the requested budget under contention; manifest tests check that YAML and JSON inputs round-trip through the loader and that auto-generated instance IDs are stable across re-loads; judge tests ensure the heuristic judge picks the right label on canonical refusal, compliance, and neutral responses; orchestrator tests run the full pipeline end-to-end against the stub adapter and verify both the JSONL log shape and the parallelism behaviour (combo-, prompt-, judge-, and streaming-level); multi-turn tests check that conversations advance sequentially within their combo, that isolation flags create the expected number of generator instances, and that the \texttt{stop\_reason} field is emitted on every exit path; and the OpenAI generator and judge tests use \texttt{unittest.mock} to substitute the HTTP layer and exercise the configuration, generation, and verdict-parsing logic without making any real network calls.
+Concurrency tests verify that the rate limiter respects the requested budget under contention.
+Manifest tests check that YAML and JSON inputs round-trip through the loader and that auto-generated instance IDs are stable across re-loads.
+Judge tests ensure the heuristic judge picks the right label on canonical refusal, compliance, and neutral responses.
+Orchestrator tests run the full pipeline end-to-end against the stub adapter and verify both the JSONL log shape and the parallelism behaviour (combo-, prompt-, judge-, and streaming-level).
+Multi-turn tests check that conversations advance sequentially within their combo, that isolation flags create the expected number of generator instances, and that the \texttt{stop\_reason} field is emitted on every exit path.
+And the OpenAI generator and judge tests use \texttt{unittest.mock} to substitute the HTTP layer and exercise the configuration, generation, and verdict-parsing logic without making any real network calls.
 
 The suite runs in roughly one second on the development machine and is cheap to invoke as part of a pre-commit or CI workflow.
 Two design decisions make this possible.
