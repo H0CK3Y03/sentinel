@@ -1169,7 +1169,8 @@ The breakdowns share a small helper that computes per-group totals, averages, an
 
 The offline analyser in \texttt{analysis/} reads the JSONL log back into the same shape after the run.
 Three small modules cooperate: \texttt{reports.py} declares the dataclasses returned to the caller, \texttt{analyzer.py} parses the log into those dataclasses, and \texttt{printer.py} renders them as human-readable text on standard output.
-The analyser deliberately reads each trial's pre-aggregated \texttt{final\_verdict} field rather than recomputing the ensemble from the per-judge verdicts; this keeps the offline report consistent with the live experiment summary, which is the more authoritative view because it is what the orchestrator emitted.
+The analyser deliberately reads each trial's pre-aggregated \texttt{final\_verdict} field rather than recomputing the ensemble from the per-judge verdicts.
+This keeps the offline report consistent with the live experiment summary, which is the more authoritative view because it is what the orchestrator emitted.
 
 \section{Command-Line Interface}\label{sec:impl-cli}
 
