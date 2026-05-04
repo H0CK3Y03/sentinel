@@ -1030,7 +1030,7 @@ Its public surface is deliberately small: a constructor that accepts a manifest 
 Internally the run is broken into three phases --- \emph{construction}, \emph{validation}, and \emph{execution} --- that map onto three sibling helper modules so that the main file remains short and readable.
 
 Figure~\ref{fig:impl-execution-flow} shows the lifecycle of a single trial: the orchestrator pulls a prompt from the generator, sends it to the adapter, fans the response out to every judge, aggregates the verdicts into a single ensemble verdict, records the trial in the in-run \texttt{MetricsCollector}, and writes a \texttt{trial\_result} event to the JSONL log.
-The numbered arrows correspond to the flow of one trial through the pipeline; the dashed arrow shows the optional progress callbacks that drive the live status panel described in Section~\ref{sec:impl-cli}.
+The numbered arrows correspond to the flow of one trial through the pipeline. The dashed arrow shows the optional progress callbacks that drive the live status panel described in Section~\ref{sec:impl-cli}.
 
 \begin{figure}[htbp]
   \centering
@@ -1046,7 +1046,7 @@ Per-combo isolation is automatic when running multiple adapters concurrently wit
 A second pass, \texttt{collect\_components}, deduplicates the resulting instances by Python object identity so that subsequent phases configure or health-check each unique instance exactly once.
 
 \paragraph{Configuration and health-check.}
-The lifecycle helpers in \texttt{orchestrator\_lifecycle.py} apply the manifest configuration to every unique component, merging the global seed into each generator's configuration so that the experiment is reproducible end-to-end.
+Lifecycle helpers in \texttt{orchestrator\_lifecycle.py} apply the manifest configuration to every unique component, merging the global seed into each generator's configuration so that the experiment is reproducible end-to-end.
 Configuration errors are aggregated rather than raised on the first failure, and the resulting summary is logged before the run aborts so that the user sees every problem at once.
 Every component then receives a \texttt{health\_check()} call; the helper logs a structured event for each result and aborts if any component reports a status worse than \texttt{OK}.
 Both error reports duplicate the issue across the generic \texttt{component\_*} keys and the type-specific \texttt{adapter\_*}/\texttt{generator\_*}/\texttt{judge\_*} keys, so log consumers that filter by either convention keep working.
