@@ -1175,12 +1175,12 @@ This keeps the offline report consistent with the live experiment summary, which
 \section{Command-Line Interface}\label{sec:impl-cli}
 
 The CLI in \texttt{cli.py} ties all of the above together and is the only thing most users interact with.
-\texttt{Typer} provides argument parsing and help-text generation; the \texttt{sentinel} console script defined in \texttt{pyproject.toml} dispatches to the same \texttt{main} function used during development.
+\texttt{Typer} provides argument parsing and help-text generation, the \texttt{sentinel} console script defined in \texttt{pyproject.toml} dispatches to the same \texttt{main} function used during development.
 Five commands cover the user-facing surface: \texttt{run} executes a manifest, \texttt{validate} parses it without executing and pretty-prints the resolved configuration, \texttt{list-plugins} enumerates every registered adapter, generator, and judge, \texttt{analyze} renders an offline report from a JSONL log, and \texttt{interactive} starts a small REPL against a single adapter--judge pair for manual exploration.
 
 Two pieces of the CLI implementation deserve specific mention.
 The first is the live status panel built in \texttt{cli\_display.py}.
-During a non-quiet \texttt{run}, the orchestrator's four callback hooks (\texttt{on\_generation\_start}, \texttt{on\_adapter\_start}, \texttt{on\_judge\_start}, and \texttt{on\_trial\_complete}) are wired into a small in-place rendering panel that uses ANSI cursor-up escapes to overwrite the previous frame.
+During a \texttt{run}, the orchestrator's four callback hooks (\texttt{on\_generation\_start}, \texttt{on\_adapter\_start}, \texttt{on\_judge\_start}, and \texttt{on\_trial\_complete}) are wired into a small in-place rendering panel that uses ANSI cursor-up escapes to overwrite the previous frame.
 The panel shows three columns per generator (\emph{generating}, \emph{responding}, \emph{judging}) and updates as each stage's counter increments, while completed trials are flushed above the panel as one-line summaries colour-coded by verdict.
 The result is a Unix-friendly progress display that needs no extra dependencies and degrades gracefully on terminals that do not support ANSI.
 
