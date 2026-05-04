@@ -1095,18 +1095,11 @@ Errors take a slightly different path: the summary's error counter increments, a
 The orchestrator squeezes throughput out of the experiment with four nested levels of concurrency, each governed by a configurable cap.
 The levels compose: a single experiment can run multiple combos simultaneously, each driving multiple prompts simultaneously, each fanning out to multiple judges simultaneously, and each batch overlapping with the next batch's generation.
 The result is a pipeline whose effective parallelism is the product of the four caps, which makes the toolkit usable both on a small CPU-only laptop (caps set to 1) and on a higher-throughput backend (caps set to many).
-Figure~\ref{fig:impl-parallelism} sketches the four levels, with two concurrent combos shown side by side; each combo independently drives prompt-, judge-, and streaming-level parallelism.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{obrazky-figures/impl-parallelism.pdf}
-  \caption{Four nested levels of parallelism. The outer experiment holds an \texttt{asyncio.Semaphore} that bounds the number of concurrent adapter--generator combos; within each combo, a second semaphore caps concurrent prompts; for each prompt, judges fan out via \texttt{asyncio.gather}; and an optional streaming task prefetches the next batch while the current one is still being judged.}
-  \label{fig:impl-parallelism}
-\end{figure}
+Figure~\ref{fig:impl-parallelism} sketches the four levels, with two concurrent combos shown side by side. Each combo independently drives prompt-, judge-, and streaming-level parallelism.
 
 \paragraph{Combo-level parallelism.}
-Adapter--generator pairs are independent units of work, so the orchestrator runs them through an outer \texttt{asyncio.Semaphore} bounded by \texttt{max\_combo\_concurrency}.
-Multi-adapter experiments benefit most from this level: testing several models with the same generators in parallel cuts wall-clock time roughly linearly in the number of combos.
+Adapter--generator pairs are independent units of work, so the orchestrator runs them through an outer \texttt{asyncio.Semaphore} bounded by the manifest parameter \texttt{max\_combo\_concurrency}.
+Multi-adapter experiments benefit most from this level: testing several models with the same generators in parallel cuts time roughly linearly in the number of combos.
 
 \paragraph{Prompt-level parallelism.}
 Within each combo, the prompts of one batch are scheduled through an inner semaphore bounded by \texttt{max\_concurrency}.
@@ -1117,10 +1110,18 @@ For every prompt, all judges are invoked concurrently through \texttt{asyncio.ga
 The motivation is asymmetry: a heuristic judge returns in microseconds, while an LLM judge (local or remote) may take seconds.
 Without judge-level parallelism, the ensemble pipeline would be serialised behind the slowest judge.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{obrazky-figures/impl-parallelism.pdf}
+  \caption{Four nested levels of parallelism. The outer experiment holds an \texttt{asyncio.Semaphore} that bounds the number of concurrent adapter-generator combos.
+  Within each combo, a second semaphore caps concurrent prompts, for each prompt, judges fan out via \texttt{asyncio.gather} and an optional streaming task prefetches the next batch while the current one is still being judged.}
+  \label{fig:impl-parallelism}
+\end{figure}
+
 \paragraph{Streaming pipeline.}
 The optional streaming mode overlaps the adapter and generator pipelines.
 While the previous batch is being judged, the runtime starts an \texttt{asyncio.Task} that prefetches the next batch in the background.
-This is most useful with LLM-driven generators, whose prompt construction is itself an LLM call and may take seconds; without overlap, the adapter would sit idle while the generator thinks.
+This is most useful with LLM-driven generators, whose prompt construction is itself an LLM call and may take seconds. Without overlap, the adapter would sit idle while the generator thinks.
 The mode is opt-in through the manifest's \texttt{pipeline\_mode} field and is automatically downgraded to batch mode for stateful generators that need feedback before producing the next batch.
 
 A small dedicated module, \texttt{concurrency.py}, contains the \texttt{RateLimiter} that throttles request dispatch when the manifest sets a non-zero \texttt{rate\_limit\_rps}.
