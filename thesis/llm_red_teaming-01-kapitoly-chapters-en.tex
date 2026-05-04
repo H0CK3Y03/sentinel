@@ -992,7 +992,7 @@ Conversation state lives on the generator itself, keyed by a UUID-derived \textt
 \section{Judges and Verdict Aggregation}\label{sec:impl-judges}
 
 Judges in \texttt{judges/} answer the question that determines an attack's success: did the model comply with the harmful request, did it refuse, or is the answer unclear?
-They share a synchronous interface (Listing~\ref{lst:impl-judge-interface}); the orchestrator runs every judge in a worker thread via \texttt{asyncio.to\_thread}, which avoids forcing every judge implementor to write \texttt{async} code while still letting multiple judges evaluate a response concurrently.
+They share a synchronous interface (Listing~\ref{lst:impl-judge-interface}). The orchestrator runs every judge in a worker thread via \texttt{asyncio.to\_thread}, which avoids forcing every judge implementor to write \texttt{async} code while still letting multiple judges evaluate a response concurrently.
 
 \begin{lstlisting}[language=Python,caption={Judge adapter interface.},label={lst:impl-judge-interface}]
 class JudgeAdapter(ABC):
